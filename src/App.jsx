@@ -165,8 +165,16 @@ export default function App(){
   },[selProf]);
 
   function showToast(msg){setToast(msg);}
-  function navigate(p,prof=null){setPage(p);setFormErr("");setForm({texto:"",claridad:0,puntualidad:0,trato:0,examenes:0});if(prof)setSelProf(prof);window.scrollTo(0,0);}
 
+  function navigate(p,prof=null){
+  setPage(p);
+  setFormErr("");
+  setForm({texto:"",claridad:0,puntualidad:0,trato:0,examenes:0});
+  setAddProf({nombre:"",facultad:"Ingeniería",curso:"",bio:""});
+  if(prof)setSelProf(prof);
+  window.scrollTo(0,0);
+  }
+  
   async function submitReseña(){
     if(!form.texto.trim()||CRIT.some(c=>form[c]===0)){setFormErr("Completa todos los criterios y escribe un comentario.");return;}
     const r={texto:form.texto,criterios:{claridad:form.claridad,puntualidad:form.puntualidad,trato:form.trato,examenes:form.examenes},util:0,noUtil:0,createdAt:serverTimestamp()};
@@ -184,6 +192,7 @@ export default function App(){
     setAddProf({nombre:"",facultad:"Ingeniería",curso:"",bio:""});
     showToast("✅ ¡Profesor agregado!");
     setTimeout(()=>navigate("home"),1200);
+    
   }
 
   async function toggleUtil(profId,resId,tipo){
@@ -368,40 +377,164 @@ export default function App(){
     );
   }
 
-  if(page==="agregar") return(
-    <div style={{fontFamily:"Inter,sans-serif",minHeight:"100vh",background:"#eef2f9"}}>
-      <style>{css}</style><Header/>
-      <div style={{maxWidth:500,margin:"0 auto",padding:"32px 16px 48px"}}>
-        <div style={{textAlign:"center",marginBottom:24}}>
-          <div style={{fontSize:48,marginBottom:8}}>👨‍🏫</div>
-          <h2 style={{fontSize:20,fontWeight:700,color:BD,marginBottom:4}}>Agregar un profesor</h2>
-          <p style={{fontSize:13,color:"#8a99b0"}}>¿Tu profe no aparece? Agrégalo y sé el primero en calificarlo.</p>
-        </div>
-        <div className="card" style={{padding:26,display:"flex",flexDirection:"column",gap:16}}>
-          {[{label:"Nombre completo",key:"nombre",ph:"Ej. Juan Pérez García"},{label:"Curso que enseña",key:"curso",ph:"Ej. Cálculo III"},{label:"Descripción (opcional)",key:"bio",ph:"Ej. Doctor con 10 años de experiencia."}].map(({label,key,ph})=>(
-            <div key={key}><label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>{label}</label>
-              <input className="input" value={addProf[key]} onChange={e=>setAddProf(p=>({...p,[key]:e.target.value}))} placeholder={ph}/></div>
-          ))}
-          <div><label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Facultad</label>
-            <select className="input" style={{cursor:"pointer"}} value={addProf.facultad} onChange={e=>setAddProf(p=>({...p,facultad:e.target.value}))}>
-              {FACULTADES.filter(f=>f!=="Todas").map(f=><option key={f}>{f}</option>)}
-            </select></div>
-          {addProf.nombre&&(
-            <div style={{background:"#f7f9fc",borderRadius:12,padding:"12px 14px",border:"1px dashed #d0dcea"}}>
-              <div style={{fontSize:11,color:"#8a99b0",marginBottom:8,fontWeight:500}}>VISTA PREVIA</div>
-              <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                <Avatar name={addProf.nombre} fac={addProf.facultad} size={40}/>
-                <div><div style={{fontSize:13,fontWeight:600}}>{addProf.nombre}</div>
-                <div style={{fontSize:11,color:"#8a99b0"}}>{addProf.facultad}{addProf.curso&&` · ${addProf.curso}`}</div></div>
-              </div>
+  if(page==="agregar"){
+    // Buscar profesores existentes que coincidan con el nombre escrito
+    const sugerencias = addProf.nombre.length >= 2
+      ? profesores.filter(p =>
+          p.nombre.toLowerCase().includes(addProf.nombre.toLowerCase())
+        )
+      : [];
+
+    // Cursos ya existentes en la facultad seleccionada
+    const cursosExistentes = [
+      ...new Set(
+        profesores
+          .filter(p => p.facultad === addProf.facultad)
+          .flatMap(p => p.cursos || [])
+      )
+    ];
+
+    async function agregarCursoAProfeExistente(prof) {
+      if(!addProf.curso.trim()){showToast("⚠️ Escribe el curso a agregar.");return;}
+      if((prof.cursos||[]).includes(addProf.curso)){showToast("⚠️ Ese curso ya existe en este profesor.");return;}
+      await updateDoc(doc(db,"profesores",prof.id),{
+        cursos: [...(prof.cursos||[]), addProf.curso]
+      });
+      setAddProf({nombre:"",facultad:"Ingeniería",curso:"",bio:""});
+      showToast("✅ ¡Curso agregado al profesor existente!");
+      setTimeout(()=>navigate("home"),1200);
+    }
+
+    return(
+      <div style={{fontFamily:"Inter,sans-serif",minHeight:"100vh",background:"#eef2f9"}}>
+        <style>{css}</style><Header/>
+        <div style={{maxWidth:500,margin:"0 auto",padding:"32px 16px 48px"}}>
+          <div style={{textAlign:"center",marginBottom:24}}>
+            <div style={{fontSize:48,marginBottom:8}}>👨‍🏫</div>
+            <h2 style={{fontSize:20,fontWeight:700,color:BD,marginBottom:4}}>Agregar un profesor</h2>
+            <p style={{fontSize:13,color:"#8a99b0"}}>¿Tu profe no aparece? Agrégalo y sé el primero en calificarlo.</p>
+          </div>
+          <div className="card" style={{padding:26,display:"flex",flexDirection:"column",gap:16}}>
+
+            {/* Nombre con autocompletar */}
+            <div style={{position:"relative"}}>
+              <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>
+                Nombre completo del profesor
+              </label>
+              <input
+                className="input"
+                value={addProf.nombre}
+                onChange={e=>setAddProf(p=>({...p,nombre:e.target.value}))}
+                placeholder="Ej. Juan Pérez García"
+                autoComplete="off"
+              />
+              {/* Sugerencias */}
+              {sugerencias.length>0&&(
+                <div style={{position:"absolute",top:"100%",left:0,right:0,background:"#fff",border:"1.5px solid #d8e3ef",borderRadius:12,marginTop:4,zIndex:50,boxShadow:"0 8px 24px rgba(0,0,0,.1)",overflow:"hidden"}}>
+                  <div style={{padding:"8px 14px",fontSize:11,color:"#8a99b0",fontWeight:600,borderBottom:"1px solid #edf1f7"}}>
+                    PROFESORES EXISTENTES
+                  </div>
+                  {sugerencias.map(p=>(
+                    <div key={p.id}
+                      onClick={()=>setAddProf(prev=>({...prev,nombre:p.nombre,facultad:p.facultad}))}
+                      style={{padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #f5f7fa",transition:"background .15s"}}
+                      onMouseEnter={e=>e.currentTarget.style.background="#f7f9fc"}
+                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <div style={{width:32,height:32,borderRadius:"50%",background:FAC_BG[p.facultad]||BL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:FAC_COLOR[p.facultad]||B,flexShrink:0}}>
+                        {p.nombre.split(" ").map(x=>x[0]).slice(0,2).join("")}
+                      </div>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
+                        <div style={{fontSize:11,color:"#8a99b0"}}>{p.facultad} · {(p.cursos||[]).join(", ")}</div>
+                      </div>
+                      <span style={{marginLeft:"auto",fontSize:11,color:B,fontWeight:500}}>Seleccionar</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-          <button className="btn btn-blue" onClick={submitAddProf} style={{width:"100%",padding:13}}>Agregar profesor</button>
+
+            {/* Facultad */}
+            <div>
+              <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Facultad</label>
+              <select className="input" style={{cursor:"pointer"}} value={addProf.facultad} onChange={e=>setAddProf(p=>({...p,facultad:e.target.value,curso:""}))}>
+                {FACULTADES.filter(f=>f!=="Todas").map(f=><option key={f}>{f}</option>)}
+              </select>
+            </div>
+
+            {/* Curso con sugerencias */}
+            <div>
+              <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Curso que enseña</label>
+              <input
+                className="input"
+                value={addProf.curso}
+                onChange={e=>setAddProf(p=>({...p,curso:e.target.value}))}
+                placeholder="Ej. Cálculo III"
+                autoComplete="off"
+              />
+              {/* Cursos existentes de esa facultad */}
+              {cursosExistentes.length>0&&(
+                <div style={{marginTop:8}}>
+                  <div style={{fontSize:11,color:"#8a99b0",marginBottom:6,fontWeight:500}}>CURSOS YA REGISTRADOS EN {addProf.facultad.toUpperCase()}</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {cursosExistentes.map(c=>(
+                      <span key={c}
+                        onClick={()=>setAddProf(p=>({...p,curso:c}))}
+                        style={{background:addProf.curso===c?FAC_COLOR[addProf.facultad]||B:FAC_BG[addProf.facultad]||BL,color:addProf.curso===c?"#fff":FAC_COLOR[addProf.facultad]||BD,padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",transition:"all .15s"}}>
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bio */}
+            <div>
+              <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Descripción (opcional)</label>
+              <input className="input" value={addProf.bio} onChange={e=>setAddProf(p=>({...p,bio:e.target.value}))} placeholder="Ej. Doctor con 10 años de experiencia."/>
+            </div>
+
+            {/* Vista previa */}
+            {addProf.nombre&&(
+              <div style={{background:"#f7f9fc",borderRadius:12,padding:"12px 14px",border:"1px dashed #d0dcea"}}>
+                <div style={{fontSize:11,color:"#8a99b0",marginBottom:8,fontWeight:500}}>VISTA PREVIA</div>
+                <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                  <Avatar name={addProf.nombre} fac={addProf.facultad} size={40}/>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:600}}>{addProf.nombre}</div>
+                    <div style={{fontSize:11,color:"#8a99b0"}}>{addProf.facultad}{addProf.curso&&` · ${addProf.curso}`}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Botones */}
+            {/* Si el nombre coincide exactamente con un profe existente, ofrecer agregar solo el curso */}
+            {(()=>{
+              const exact = profesores.find(p=>p.nombre.toLowerCase()===addProf.nombre.toLowerCase());
+              if(exact && addProf.curso) return(
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <div style={{background:"#fff4eb",border:"1px solid #E87722",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#8a99b0"}}>
+                    ⚠️ <strong style={{color:"#1a2540"}}>{exact.nombre}</strong> ya existe. ¿Quieres agregar <strong style={{color:OR}}>"{addProf.curso}"</strong> a su perfil?
+                  </div>
+                  <button className="btn btn-orange" onClick={()=>agregarCursoAProfeExistente(exact)} style={{width:"100%",padding:13}}>
+                    Agregar curso a profesor existente
+                  </button>
+                  <button className="btn btn-ghost" onClick={submitAddProf} style={{width:"100%",padding:13}}>
+                    Crear como profesor nuevo de todas formas
+                  </button>
+                </div>
+              );
+              return <button className="btn btn-blue" onClick={submitAddProf} style={{width:"100%",padding:13}}>Agregar profesor</button>;
+            })()}
+
+          </div>
         </div>
+        {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
       </div>
-      {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
-    </div>
-  );
+    );
+  }
 
   if(page==="perfil"&&selProf) return(
     <div style={{fontFamily:"Inter,sans-serif",minHeight:"100vh",background:"#eef2f9"}}>
