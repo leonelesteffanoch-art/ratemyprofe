@@ -23,14 +23,6 @@ const FACULTADES=["Todas","Ingeniería","Medicina","Derecho","Administración","
 const CRIT=["claridad","puntualidad","trato","examenes"];
 const CRIT_LABEL={claridad:"Claridad",puntualidad:"Puntualidad",trato:"Trato",examenes:"Exámenes"};
 const CRIT_ICON={claridad:"💡",puntualidad:"⏰",trato:"🤝",examenes:"📝"};
-const PROFESORES_DEFAULT=[
-  {nombre:"Carlos Mendoza",facultad:"Ingeniería",cursos:["Cálculo I","Física II"],bio:"Ingeniero civil con 12 años de experiencia docente."},
-  {nombre:"Ana Torres",facultad:"Medicina",cursos:["Anatomía","Fisiología"],bio:"Médico especialista, apasionada por la enseñanza práctica."},
-  {nombre:"Roberto Vargas",facultad:"Derecho",cursos:["Derecho Penal"],bio:"Abogado penalista con 8 años de trayectoria académica."},
-  {nombre:"María Quispe",facultad:"Administración",cursos:["Marketing","Finanzas"],bio:"MBA con especialización en mercados emergentes."},
-  {nombre:"Luis Paredes",facultad:"Psicología",cursos:["Neurociencia"],bio:"Doctor en neurociencias cognitivas, investigador activo."},
-  {nombre:"Sandra Chávez",facultad:"Arquitectura",cursos:["Diseño I","Historia del Arte"],bio:"Arquitecta con proyectos premiados en Latinoamérica."},
-];
 
 // ── Helpers ──
 function avg(arr){return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0}
