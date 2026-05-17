@@ -571,6 +571,17 @@ export default function App() {
       <style>{css}</style><Header/>
       <div style={{maxWidth:780,margin:"0 auto",padding:"20px 16px 48px"}}>
         <button className="btn btn-ghost" onClick={()=>navigate("home")} style={{marginBottom:16,fontSize:13,padding:"7px 14px"}}>← Volver</button>
+        <div style={{display:"flex",gap:8,marginBottom:16}}>
+        <button className="btn btn-ghost" onClick={()=>navigate("home")} style={{fontSize:13,padding:"7px 14px"}}>← Volver</button>
+        <button className="btn btn-ghost" style={{fontSize:13,padding:"7px 14px"}}
+          onClick={()=>{
+            const url = window.location.href;
+            const texto = `¿Conoces a ${selProf.nombre}? Mira sus reseñas en RateMyProfe 👇\n${url}`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`,"_blank");
+          }}>
+          📲 Compartir en WhatsApp
+        </button>
+      </div>
         <div className="card" style={{marginBottom:14,overflow:"hidden"}}>
           <div style={{background:`linear-gradient(135deg,${FAC_COLOR[selProf.facultad]||BD}18,${OR}08)`,padding:"22px 24px 18px"}}>
             <div style={{display:"flex",gap:16,alignItems:"flex-start",flexWrap:"wrap"}}>
