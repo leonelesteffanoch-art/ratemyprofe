@@ -572,7 +572,6 @@ export default function App() {
       <div style={{maxWidth:780,margin:"0 auto",padding:"20px 16px 48px"}}>
         <button className="btn btn-ghost" onClick={()=>navigate("home")} style={{marginBottom:16,fontSize:13,padding:"7px 14px"}}>← Volver</button>
         <div style={{display:"flex",gap:8,marginBottom:16}}>
-        <button className="btn btn-ghost" onClick={()=>navigate("home")} style={{fontSize:13,padding:"7px 14px"}}>← Volver</button>
         <button className="btn btn-ghost" style={{fontSize:13,padding:"7px 14px"}}
           onClick={()=>{
             const url = window.location.href;
