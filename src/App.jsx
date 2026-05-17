@@ -153,6 +153,13 @@ body{font-family:'Inter',sans-serif;background:#eef2f9;-webkit-font-smoothing:an
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@media(max-width:600px){
+  .nav-link{padding:6px 8px;font-size:11px}
+  .pill{font-size:10px;padding:3px 8px}
+  .tab{padding:6px 10px;font-size:11px}
+  .btn{padding:9px 16px;font-size:13px}
+  .card{border-radius:12px}
+}
 `;
 
 export default function App() {
@@ -278,13 +285,16 @@ export default function App() {
     showToast("🗑️ Reseña eliminada.");
   };
 
-  const reportarResena = async (profId, resId, texto) => {
-  if(!window.confirm("¿Reportar esta reseña como inapropiada?")) return;
-  await addDoc(collection(db,"reportes"), {
-    profId, resId, texto,
-    fecha: serverTimestamp()
-  });
-  showToast("⚠️ Reseña reportada. El administrador la revisará.");
+  const reportarResena = async (profId, resId, texto, profNombre) => {
+    if(!window.confirm("¿Reportar esta reseña como inapropiada o falsa?")) return;
+    const yaReportada = reportes.some(r=>r.resId===resId);
+    if(yaReportada){ showToast("⚠️ Esta reseña ya fue reportada."); return; }
+    await addDoc(collection(db,"reportes"), {
+      profId, resId, texto, profNombre,
+      fecha: serverTimestamp(),
+      estado: "pendiente"
+    });
+    showToast("⚠️ Reseña reportada. La revisaremos pronto.");
   };
 
   const allR = selProf ? (resenas[selProf.id]||[]) : [];
@@ -305,10 +315,11 @@ export default function App() {
         </div>
       </span>
       <span style={{flex:1}}/>
-      <nav style={{display:"flex",gap:2}}>
-        {[["home","🏠 Inicio"],["ranking","🏆 Ranking"],["agregar","➕ Agregar"],["admin","⚙️"]].map(([p,l])=>(
-          <span key={p} className={`nav-link${page===p?" active":""}`} onClick={()=>navigate(p)}>{l}</span>
-        ))}
+      <nav style={{display:"flex",gap:2,overflowX:"auto",flexShrink:1,minWidth:0}}>
+      {[["home","🏠 Inicio"],["ranking","🏆 Ranking"],["agregar","➕ Agregar"],["admin","⚙️"]].map(([p,l])=>(
+        <span key={p} className={`nav-link${page===p?" active":""}`} onClick={()=>navigate(p)}
+          style={{padding:"7px 10px"}}>{l}</span>
+      ))}
       </nav>
     </div>
   );
@@ -676,9 +687,11 @@ export default function App() {
                 <span style={{fontSize:12,color:"#8a99b0"}}>¿Te fue útil?</span>
                 <button className="util-btn" onClick={()=>toggleUtil(selProf.id,r.id,"util")}>👍 {r.util||0}</button>
                 <button className="util-btn" onClick={()=>toggleUtil(selProf.id,r.id,"noUtil")}>👎 {r.noUtil||0}</button>
-                <button className="util-btn" onClick={()=>reportarResena(selProf.id, r.id, r.texto)}
-                  style={{marginLeft:"auto",color:"#DC2626",borderColor:"#fecaca"}}>
-                  🚩 Reportar
+                <button className="util-btn" 
+                  onClick={()=>reportarResena(selProf.id, r.id, r.texto, selProf.nombre)}
+                  style={{marginLeft:"auto",color:"#DC2626",borderColor:"#fecaca",opacity:reportes.some(x=>x.resId===r.id)?0.5:1}}
+                  disabled={reportes.some(x=>x.resId===r.id)}>
+                  🚨 {reportes.some(x=>x.resId===r.id)?"Reportada":"Reportar"}
                 </button>
               </div>
             </div>
