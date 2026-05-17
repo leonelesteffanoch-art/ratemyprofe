@@ -13,57 +13,55 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
-// ── Colección única sin caracteres especiales ──
 const COL_RESENAS = "resenas";
-
 const B="#1560AA", BD="#0C447C", BL="#deeaf8", OR="#E87722";
 const ADMIN_PASS = "Kanyewestlover911";
 
+// ── Claves EXACTAMENTE igual a como están en Firebase ──
 const FAC_COLOR = {
   "Ciencias de la Arquitectura":"#B45309",
-  "Ciencias Biologicas":"#059669",
-  "Ciencias de la Comunicacion y Creatividad":"#9333EA",
+  "Ciencias Biológicas":"#059669",
+  "Ciencias de la Comunicación y Creatividad":"#9333EA",
   "Ciencias Empresariales":"#0891B2",
   "Ciencias de la Ingenieria":"#1560AA",
   "Ciencias de la Salud":"#E87722",
-  "Ciencias Politicas y Derecho":"#7C3AED",
-  "Ciencias de la Educacion":"#DB2777",
+  "Ciencias Políticas y Derecho":"#7C3AED",
+  "Ciencias de la Educación":"#DB2777",
 };
 const FAC_BG = {
   "Ciencias de la Arquitectura":"#fef3c7",
-  "Ciencias Biologicas":"#d1fae5",
-  "Ciencias de la Comunicacion y Creatividad":"#f3e8ff",
+  "Ciencias Biológicas":"#d1fae5",
+  "Ciencias de la Comunicación y Creatividad":"#f3e8ff",
   "Ciencias Empresariales":"#e0f2fe",
   "Ciencias de la Ingenieria":"#deeaf8",
   "Ciencias de la Salud":"#fff3e0",
-  "Ciencias Politicas y Derecho":"#ede9fe",
-  "Ciencias de la Educacion":"#fce7f3",
+  "Ciencias Políticas y Derecho":"#ede9fe",
+  "Ciencias de la Educación":"#fce7f3",
 };
 const FAC_EMOJI = {
   "Ciencias de la Arquitectura":"🏛️",
-  "Ciencias Biologicas":"🔬",
-  "Ciencias de la Comunicacion y Creatividad":"🎨",
+  "Ciencias Biológicas":"🔬",
+  "Ciencias de la Comunicación y Creatividad":"🎨",
   "Ciencias Empresariales":"📊",
   "Ciencias de la Ingenieria":"⚙️",
   "Ciencias de la Salud":"🩺",
-  "Ciencias Politicas y Derecho":"⚖️",
-  "Ciencias de la Educacion":"📚",
+  "Ciencias Políticas y Derecho":"⚖️",
+  "Ciencias de la Educación":"📚",
 };
 
-// Nombres para mostrar en la UI (con tildes y caracteres correctos)
-const FAC_DISPLAY = {
-  "Ciencias de la Arquitectura":"Ciencias de la Arquitectura",
-  "Ciencias Biologicas":"Ciencias Biológicas",
-  "Ciencias de la Comunicacion y Creatividad":"Ciencias de la Comunicación y Creatividad",
-  "Ciencias Empresariales":"Ciencias Empresariales",
-  "Ciencias de la Ingenieria":"Ciencias de la Ingenieria",
-  "Ciencias de la Salud":"Ciencias de la Salud",
-  "Ciencias Politicas y Derecho":"Ciencias Políticas y Derecho",
-  "Ciencias de la Educacion":"Ciencias de la Educación",
-};
+// Claves idénticas a Firebase — con tildes excepto Ingenieria
+const FACULTADES = [
+  "Todas",
+  "Ciencias de la Arquitectura",
+  "Ciencias Biológicas",
+  "Ciencias de la Comunicación y Creatividad",
+  "Ciencias Empresariales",
+  "Ciencias de la Ingenieria",
+  "Ciencias de la Salud",
+  "Ciencias Políticas y Derecho",
+  "Ciencias de la Educación",
+];
 
-// Las claves deben coincidir EXACTAMENTE con los campos en Firebase
-const FACULTADES = ["Todas","Ciencias de la Arquitectura","Ciencias Biologicas","Ciencias de la Comunicacion y Creatividad","Ciencias Empresariales","Ciencias de la Ingenieria","Ciencias de la Salud","Ciencias Politicas y Derecho","Ciencias de la Educacion"];
 const CRIT = ["claridad","puntualidad","trato","examenes"];
 const CRIT_LABEL = {claridad:"Claridad",puntualidad:"Puntualidad",trato:"Trato",examenes:"Exámenes"};
 const CRIT_ICON = {claridad:"💡",puntualidad:"⏰",trato:"🤝",examenes:"📝"};
@@ -184,10 +182,13 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // Carreras desde Firebase — la clave en Firebase debe ser exactamente igual a FACULTADES
   useEffect(() => {
     const unsub = onSnapshot(doc(db,"config","carreras"), snap => {
-      if(snap.exists()) setCarreras(snap.data());
+      if(snap.exists()){
+        // Log para debug — puedes quitarlo luego
+        console.log("Carreras cargadas:", snap.data());
+        setCarreras(snap.data());
+      }
     });
     return () => unsub();
   }, []);
@@ -262,7 +263,10 @@ export default function App() {
     if(!window.confirm("¿Eliminar esta reseña?")) return;
     await deleteDoc(doc(db,"profesores",p.id,COL_RESENAS,r.id));
     const remaining = (resenas[p.id]||[]).filter(x=>x.id!==r.id);
-    await updateDoc(doc(db,"profesores",p.id), {rating:calcRating(remaining), totalReseñas:remaining.length});
+    const newRating = calcRating(remaining);
+    await updateDoc(doc(db,"profesores",p.id), {rating:newRating, totalReseñas:remaining.length});
+    setResenas(prev=>({...prev,[p.id]:remaining}));
+    setProfesores(prev=>prev.map(x=>x.id===p.id?{...x,rating:newRating,totalReseñas:remaining.length}:x));
     showToast("🗑️ Reseña eliminada.");
   };
 
@@ -327,7 +331,7 @@ export default function App() {
                   background:facFiltro===f?FAC_COLOR[f]||B:"transparent",
                   color:facFiltro===f?"#fff":FAC_COLOR[f]||"#666",
                   borderColor:facFiltro===f?FAC_COLOR[f]||B:FAC_BG[f]||"#e2eaf5"}}>
-                {f==="Todas"?"Todas":`${FAC_EMOJI[f]||""} ${FAC_DISPLAY[f]||f}`}
+                {f==="Todas"?"Todas":`${FAC_EMOJI[f]||""} ${f}`}
               </button>
             ))}
           </div>
@@ -354,7 +358,7 @@ export default function App() {
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontWeight:600,fontSize:15,color:"#1a2540",marginBottom:4}}>{p.nombre}</div>
                 <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                  <span className="pill" style={{background:FAC_BG[p.facultad]||BL,color:FAC_COLOR[p.facultad]||BD}}>{FAC_EMOJI[p.facultad]||""} {FAC_DISPLAY[p.facultad]||p.facultad}</span>
+                  <span className="pill" style={{background:FAC_BG[p.facultad]||BL,color:FAC_COLOR[p.facultad]||BD}}>{FAC_EMOJI[p.facultad]||""} {p.facultad}</span>
                   {(p.cursos||[]).map(c=><span key={c} className="pill" style={{background:"#f3f6fb",color:"#5a6a80"}}>📚 {c}</span>)}
                 </div>
               </div>
@@ -411,7 +415,7 @@ export default function App() {
                   onMouseEnter={e=>e.currentTarget.style.background="#f7f9fc"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                   <span style={{fontSize:13,color:"#a0adb8",fontWeight:600,width:28}}>#{i+4}</span>
                   <Avatar name={p.nombre} fac={p.facultad} size={36}/>
-                  <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div><div style={{fontSize:11,color:"#8a99b0"}}>{FAC_DISPLAY[p.facultad]||p.facultad}</div></div>
+                  <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div><div style={{fontSize:11,color:"#8a99b0"}}>{p.facultad}</div></div>
                   <RatingChip r={p.rating}/>
                 </div>
               ))}
@@ -424,7 +428,7 @@ export default function App() {
                 onMouseEnter={e=>e.currentTarget.style.background="#f7f9fc"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                 <span style={{fontSize:22}}>{i===0?"💀":i===1?"😬":"😕"}</span>
                 <Avatar name={p.nombre} fac={p.facultad} size={36}/>
-                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div><div style={{fontSize:11,color:"#8a99b0"}}>{FAC_DISPLAY[p.facultad]||p.facultad}</div></div>
+                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div><div style={{fontSize:11,color:"#8a99b0"}}>{p.facultad}</div></div>
                 <RatingChip r={p.rating}/>
               </div>
             ))}
@@ -436,7 +440,7 @@ export default function App() {
                 onMouseEnter={e=>e.currentTarget.style.background="#f7f9fc"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                 <span style={{fontSize:13,color:"#a0adb8",fontWeight:600,width:28}}>#{i+1}</span>
                 <Avatar name={p.nombre} fac={p.facultad} size={36}/>
-                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div><div style={{fontSize:11,color:"#8a99b0"}}>{p.totalReseñas||0} reseñas · {FAC_DISPLAY[p.facultad]||p.facultad}</div></div>
+                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div><div style={{fontSize:11,color:"#8a99b0"}}>{p.totalReseñas||0} reseñas · {p.facultad}</div></div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <div style={{width:80,background:"#edf1f7",borderRadius:6,height:8,overflow:"hidden"}}>
                     <div style={{width:`${((p.totalReseñas||0)/maxR)*100}%`,background:`linear-gradient(90deg,${B},${OR})`,height:"100%",borderRadius:6}}/>
@@ -480,7 +484,7 @@ export default function App() {
                       <Avatar name={p.nombre} fac={p.facultad} size={32}/>
                       <div>
                         <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
-                        <div style={{fontSize:11,color:"#8a99b0"}}>{FAC_DISPLAY[p.facultad]||p.facultad} · {(p.cursos||[]).join(", ")}</div>
+                        <div style={{fontSize:11,color:"#8a99b0"}}>{p.facultad} · {(p.cursos||[]).join(", ")}</div>
                       </div>
                       <span style={{marginLeft:"auto",fontSize:11,color:B,fontWeight:500}}>Seleccionar</span>
                     </div>
@@ -491,7 +495,7 @@ export default function App() {
             <div>
               <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Facultad</label>
               <select className="input" style={{cursor:"pointer"}} value={addProf.facultad} onChange={e=>setAddProf(p=>({...p,facultad:e.target.value,curso:""}))}>
-                {FACULTADES.filter(f=>f!=="Todas").map(f=><option key={f} value={f}>{FAC_DISPLAY[f]||f}</option>)}
+                {FACULTADES.filter(f=>f!=="Todas").map(f=><option key={f} value={f}>{f}</option>)}
               </select>
             </div>
             <div>
@@ -522,7 +526,7 @@ export default function App() {
                   <Avatar name={addProf.nombre} fac={addProf.facultad} size={40}/>
                   <div>
                     <div style={{fontSize:13,fontWeight:600}}>{addProf.nombre}</div>
-                    <div style={{fontSize:11,color:"#8a99b0"}}>{FAC_DISPLAY[addProf.facultad]||addProf.facultad}{addProf.curso&&` · ${addProf.curso}`}</div>
+                    <div style={{fontSize:11,color:"#8a99b0"}}>{addProf.facultad}{addProf.curso&&` · ${addProf.curso}`}</div>
                   </div>
                 </div>
               </div>
@@ -557,7 +561,7 @@ export default function App() {
               <div style={{flex:1,minWidth:160}}>
                 <h2 style={{fontSize:22,fontWeight:700,color:"#1a2540",marginBottom:6}}>{selProf.nombre}</h2>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
-                  <span className="pill" style={{background:FAC_BG[selProf.facultad]||BL,color:FAC_COLOR[selProf.facultad]||BD,fontSize:12}}>{FAC_EMOJI[selProf.facultad]||""} {FAC_DISPLAY[selProf.facultad]||selProf.facultad}</span>
+                  <span className="pill" style={{background:FAC_BG[selProf.facultad]||BL,color:FAC_COLOR[selProf.facultad]||BD,fontSize:12}}>{FAC_EMOJI[selProf.facultad]||""} {selProf.facultad}</span>
                   {(selProf.cursos||[]).map(c=><span key={c} className="pill" style={{background:"#f3f6fb",color:"#5a6a80",fontSize:12}}>📚 {c}</span>)}
                 </div>
                 {selProf.bio&&<p style={{fontSize:13,color:"#6b7a90",lineHeight:1.5}}>{selProf.bio}</p>}
@@ -698,7 +702,7 @@ export default function App() {
                 <Avatar name={p.nombre} fac={p.facultad} size={38}/>
                 <div style={{flex:1}}>
                   <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
-                  <div style={{fontSize:11,color:"#8a99b0"}}>{FAC_DISPLAY[p.facultad]||p.facultad} · {(p.cursos||[]).join(", ")} · {p.totalReseñas||0} reseñas</div>
+                  <div style={{fontSize:11,color:"#8a99b0"}}>{p.facultad} · {(p.cursos||[]).join(", ")} · {p.totalReseñas||0} reseñas</div>
                 </div>
                 <RatingChip r={p.rating}/>
                 <button className="btn btn-red" style={{fontSize:12,padding:"5px 12px",flexShrink:0}} onClick={()=>eliminarProfesor(p)}>🗑️ Eliminar</button>
