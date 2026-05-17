@@ -15,7 +15,7 @@ const db = getFirestore(firebaseApp);
 
 const COL_RESENAS = "resenas";
 const B="#1560AA", BD="#0C447C", BL="#deeaf8", OR="#E87722";
-const ADMIN_PASS = "Kanyewestlover911";
+const ADMIN_PASS = import.meta.env.VITE_ADMIN_PASS;
 
 // ── Claves EXACTAMENTE igual a como están en Firebase ──
 const FAC_COLOR = {
@@ -172,6 +172,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [adminAuth, setAdminAuth] = useState(false);
   const [adminPass, setAdminPass] = useState("");
+  const [reportes, setReportes] = useState([]);
   const formRef = useRef();
 
   useEffect(() => {
@@ -201,6 +202,13 @@ export default function App() {
     });
     return () => unsub();
   }, [selProf]);
+
+  useEffect(() => {
+  const unsub = onSnapshot(collection(db,"reportes"), snap => {
+    setReportes(snap.docs.map(d=>({id:d.id,...d.data()})));
+  });
+  return () => unsub();
+  }, []);
 
   const showToast = msg => setToast(msg);
 
@@ -268,6 +276,15 @@ export default function App() {
     setResenas(prev=>({...prev,[p.id]:remaining}));
     setProfesores(prev=>prev.map(x=>x.id===p.id?{...x,rating:newRating,totalReseñas:remaining.length}:x));
     showToast("🗑️ Reseña eliminada.");
+  };
+
+  const reportarResena = async (profId, resId, texto) => {
+  if(!window.confirm("¿Reportar esta reseña como inapropiada?")) return;
+  await addDoc(collection(db,"reportes"), {
+    profId, resId, texto,
+    fecha: serverTimestamp()
+  });
+  showToast("⚠️ Reseña reportada. El administrador la revisará.");
   };
 
   const allR = selProf ? (resenas[selProf.id]||[]) : [];
@@ -649,6 +666,10 @@ export default function App() {
                 <span style={{fontSize:12,color:"#8a99b0"}}>¿Te fue útil?</span>
                 <button className="util-btn" onClick={()=>toggleUtil(selProf.id,r.id,"util")}>👍 {r.util||0}</button>
                 <button className="util-btn" onClick={()=>toggleUtil(selProf.id,r.id,"noUtil")}>👎 {r.noUtil||0}</button>
+                <button className="util-btn" onClick={()=>reportarResena(selProf.id, r.id, r.texto)}
+                  style={{marginLeft:"auto",color:"#DC2626",borderColor:"#fecaca"}}>
+                  🚩 Reportar
+                </button>
               </div>
             </div>
           );
@@ -709,6 +730,46 @@ export default function App() {
               </div>
             ))}
           </div>
+          {reportes.length>0 && <>
+            <h3 style={{fontSize:16,fontWeight:700,color:"#DC2626",marginBottom:12}}>
+              🚨 Reseñas reportadas ({reportes.length})
+            </h3>
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+              {reportes.map(rep=>{
+                const prof = profesores.find(p=>p.id===rep.profId);
+                const resena = (resenas[rep.profId]||[]).find(r=>r.id===rep.resId);
+                return(
+                  <div key={rep.id} className="card" style={{padding:"14px 18px",border:"1.5px solid #fecaca"}}>
+                    <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,color:"#DC2626",fontWeight:600,marginBottom:4}}>
+                          🚨 Reseña reportada · {prof?.nombre||"Profesor eliminado"}
+                        </div>
+                        <p style={{fontSize:13,color:"#2d3a50",lineHeight:1.6}}>{rep.texto}</p>
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                        <button className="btn btn-red" style={{fontSize:12,padding:"5px 12px"}}
+                          onClick={async()=>{
+                            if(resena) await eliminarResena(prof, resena);
+                            await deleteDoc(doc(db,"reportes",rep.id));
+                            showToast("🗑️ Reseña eliminada.");
+                          }}>
+                          🗑️ Eliminar reseña
+                        </button>
+                        <button className="btn btn-ghost" style={{fontSize:12,padding:"5px 12px"}}
+                          onClick={async()=>{
+                            await deleteDoc(doc(db,"reportes",rep.id));
+                            showToast("✅ Reporte descartado.");
+                          }}>
+                          Ignorar reporte
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>}
           <h3 style={{fontSize:16,fontWeight:700,color:BD,marginBottom:12}}>Reseñas recientes</h3>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {profesores.flatMap(p=>(resenas[p.id]||[]).map(r=>{
