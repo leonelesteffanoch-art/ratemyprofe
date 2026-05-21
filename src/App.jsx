@@ -229,72 +229,100 @@ export default function App() {
     if(!form.texto.trim() || CRIT.some(c=>form[c]===0)) {
       setFormErr("Completa todos los criterios y escribe un comentario."); return;
     }
-    const r = {
-      texto: form.texto,
-      criterios: {claridad:form.claridad,puntualidad:form.puntualidad,trato:form.trato,examenes:form.examenes},
-      carrera: form.carrera||"", ciclo: form.ciclo||"",
-      util:0, noUtil:0, createdAt:serverTimestamp()
-    };
-    await addDoc(collection(db,"profesores",selProf.id,COL_RESENAS), r);
-    const allR = [r,...(resenas[selProf.id]||[])];
-    await updateDoc(doc(db,"profesores",selProf.id), {rating:calcRating(allR), totalReseñas:allR.length});
-    setForm(FORM_EMPTY); setFormErr("");
-    showToast("✅ ¡Reseña publicada de forma anónima!");
+    try {
+      const r = {
+        texto: form.texto,
+        criterios: {claridad:form.claridad,puntualidad:form.puntualidad,trato:form.trato,examenes:form.examenes},
+        carrera: form.carrera||"", ciclo: form.ciclo||"",
+        util:0, noUtil:0, createdAt:serverTimestamp()
+      };
+      await addDoc(collection(db,"profesores",selProf.id,COL_RESENAS), r);
+      const allR = [r,...(resenas[selProf.id]||[])];
+      await updateDoc(doc(db,"profesores",selProf.id), {rating:calcRating(allR), totalReseñas:allR.length});
+      setForm(FORM_EMPTY); setFormErr("");
+      showToast("✅ ¡Reseña publicada de forma anónima!");
+    } catch(e) {
+      showToast("❌ Error al publicar la reseña. Verifica tu conexión.");
+    }
   };
 
   const submitAddProf = async () => {
     if(!addProf.nombre.trim()||!addProf.curso.trim()) { showToast("⚠️ Completa el nombre y el curso."); return; }
-    await addDoc(collection(db,"profesores"), {
-      nombre:addProf.nombre, facultad:addProf.facultad, cursos:[addProf.curso],
-      bio:addProf.bio||"Profesor de la Universidad Científica del Sur.",
-      rating:0, totalReseñas:0, createdAt:serverTimestamp()
-    });
-    showToast("✅ ¡Profesor agregado!");
-    setTimeout(()=>navigate("home"), 1200);
-  };
+    try {
+      await addDoc(collection(db,"profesores"), {
+        nombre:addProf.nombre, facultad:addProf.facultad, cursos:[addProf.curso],
+        bio:addProf.bio||"Profesor de la Universidad Científica del Sur.",
+        rating:0, totalReseñas:0, createdAt:serverTimestamp()
+      });
+      showToast("✅ ¡Profesor agregado!");
+      setTimeout(()=>navigate("home"), 1200);
+    } catch(e) {
+      showToast("❌ Error al agregar el profesor. Verifica tu conexión.");
+    }
+  };  
 
   const agregarCursoAProfe = async (prof) => {
     if(!addProf.curso.trim()) { showToast("⚠️ Escribe el curso."); return; }
     if((prof.cursos||[]).includes(addProf.curso)) { showToast("⚠️ Ese curso ya existe."); return; }
-    await updateDoc(doc(db,"profesores",prof.id), {cursos:[...(prof.cursos||[]),addProf.curso]});
-    showToast("✅ ¡Curso agregado!");
-    setTimeout(()=>navigate("home"), 1200);
+    try {
+      await updateDoc(doc(db,"profesores",prof.id), {cursos:[...(prof.cursos||[]),addProf.curso]});
+      showToast("✅ ¡Curso agregado!");
+      setTimeout(()=>navigate("home"), 1200);
+    } catch(e) {
+      showToast("❌ Error al agregar el curso. Verifica tu conexión.");
+    }
   };
 
   const toggleUtil = async (profId, resId, tipo) => {
     const r = resenas[profId]?.find(x=>x.id===resId); if(!r) return;
-    await updateDoc(doc(db,"profesores",profId,COL_RESENAS,resId), {[tipo]:(r[tipo]||0)+1});
+    try {
+      await updateDoc(doc(db,"profesores",profId,COL_RESENAS,resId), {[tipo]:(r[tipo]||0)+1});
+    } catch(e) {
+      showToast("❌ Error al registrar tu voto.");
+    }
   };
 
   const eliminarProfesor = async (p) => {
     if(!window.confirm(`¿Eliminar a ${p.nombre} y todas sus reseñas?`)) return;
-    const rSnap = await getDocs(collection(db,"profesores",p.id,COL_RESENAS));
-    for(const r of rSnap.docs) await deleteDoc(doc(db,"profesores",p.id,COL_RESENAS,r.id));
-    await deleteDoc(doc(db,"profesores",p.id));
-    showToast(`🗑️ ${p.nombre} eliminado.`);
+    try {
+      const rSnap = await getDocs(collection(db,"profesores",p.id,COL_RESENAS));
+      for(const r of rSnap.docs) await deleteDoc(doc(db,"profesores",p.id,COL_RESENAS,r.id));
+      await deleteDoc(doc(db,"profesores",p.id));
+      showToast(`🗑️ ${p.nombre} eliminado.`);
+    } catch(e) {
+      showToast("❌ Error al eliminar el profesor. Verifica tu conexión.");
+    }
   };
 
   const eliminarResena = async (p, r) => {
     if(!window.confirm("¿Eliminar esta reseña?")) return;
-    await deleteDoc(doc(db,"profesores",p.id,COL_RESENAS,r.id));
-    const remaining = (resenas[p.id]||[]).filter(x=>x.id!==r.id);
-    const newRating = calcRating(remaining);
-    await updateDoc(doc(db,"profesores",p.id), {rating:newRating, totalReseñas:remaining.length});
-    setResenas(prev=>({...prev,[p.id]:remaining}));
-    setProfesores(prev=>prev.map(x=>x.id===p.id?{...x,rating:newRating,totalReseñas:remaining.length}:x));
-    showToast("🗑️ Reseña eliminada.");
+    try {
+      await deleteDoc(doc(db,"profesores",p.id,COL_RESENAS,r.id));
+      const remaining = (resenas[p.id]||[]).filter(x=>x.id!==r.id);
+      const newRating = calcRating(remaining);
+      await updateDoc(doc(db,"profesores",p.id), {rating:newRating, totalReseñas:remaining.length});
+      setResenas(prev=>({...prev,[p.id]:remaining}));
+      setProfesores(prev=>prev.map(x=>x.id===p.id?{...x,rating:newRating,totalReseñas:remaining.length}:x));
+      showToast("🗑️ Reseña eliminada.");
+    } catch(e) {
+      showToast("❌ Error al eliminar la reseña. Verifica tu conexión.");
+    }
   };
 
   const reportarResena = async (profId, resId, texto, profNombre) => {
     if(!window.confirm("¿Reportar esta reseña como inapropiada o falsa?")) return;
     const yaReportada = reportes.some(r=>r.resId===resId);
     if(yaReportada){ showToast("⚠️ Esta reseña ya fue reportada."); return; }
-    await addDoc(collection(db,"reportes"), {
-      profId, resId, texto, profNombre,
-      fecha: serverTimestamp(),
-      estado: "pendiente"
-    });
-    showToast("⚠️ Reseña reportada. La revisaremos pronto.");
+    try {
+      await addDoc(collection(db,"reportes"), {
+        profId, resId, texto, profNombre,
+        fecha: serverTimestamp(),
+        estado: "pendiente"
+      });
+      showToast("⚠️ Reseña reportada. La revisaremos pronto.");
+    } catch(e) {
+      showToast("❌ Error al enviar el reporte. Verifica tu conexión.");
+    }
   };
 
   const allR = selProf ? (resenas[selProf.id]||[]) : [];
