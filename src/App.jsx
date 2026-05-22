@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, getDocs, onSnapshot, query, orderBy, serverTimestamp } from "firebase/firestore";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+
+const auth = getAuth(firebaseApp);
 
 const firebaseConfig = {
   apiKey: "AIzaSyAlh41094phxhm6NZDyzKFENmivi5ceRuI",
@@ -177,8 +180,10 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [rankTab, setRankTab] = useState("top");
   const [loading, setLoading] = useState(true);
-  const [adminAuth, setAdminAuth] = useState(false);
+  const [adminUser, setAdminUser] = useState(null);
+  const [adminEmail, setAdminEmail] = useState("");
   const [adminPass, setAdminPass] = useState("");
+  const [adminLoading, setAdminLoading] = useState(false);
   const [reportes, setReportes] = useState([]);
   const formRef = useRef();
 
@@ -213,6 +218,13 @@ export default function App() {
   useEffect(() => {
   const unsub = onSnapshot(collection(db,"reportes"), snap => {
     setReportes(snap.docs.map(d=>({id:d.id,...d.data()})));
+  });
+  return () => unsub();
+  }, []);
+
+  useEffect(() => {
+  const unsub = onAuthStateChanged(auth, user => {
+    setAdminUser(user);
   });
   return () => unsub();
   }, []);
@@ -731,122 +743,157 @@ export default function App() {
   );
 
   if(page==="admin") return (
-    <div style={{fontFamily:"Inter,sans-serif",minHeight:"100vh",background:"#eef2f9"}}>
-      <style>{css}</style><Header/>
-      {!adminAuth ? (
-        <div style={{maxWidth:400,margin:"80px auto",padding:"0 16px"}}>
-          <div className="card" style={{padding:32,textAlign:"center"}}>
-            <div style={{fontSize:48,marginBottom:12}}>🔐</div>
-            <h2 style={{fontSize:20,fontWeight:700,color:BD,marginBottom:4}}>Panel de administrador</h2>
-            <p style={{fontSize:13,color:"#8a99b0",marginBottom:24}}>Acceso restringido</p>
-            <input className="input" type="password" value={adminPass}
-              onChange={e=>setAdminPass(e.target.value)}
-              onKeyDown={e=>{if(e.key==="Enter"){if(adminPass===ADMIN_PASS){setAdminAuth(true);setAdminPass("");}else showToast("❌ Contraseña incorrecta.");}}}
-              placeholder="Contraseña" style={{marginBottom:12}}/>
-            <button className="btn btn-blue" style={{width:"100%",padding:13}} onClick={()=>{
-              if(adminPass===ADMIN_PASS){setAdminAuth(true);setAdminPass("");}
-              else showToast("❌ Contraseña incorrecta.");
-            }}>Ingresar</button>
-          </div>
+  <div style={{fontFamily:"Inter,sans-serif",minHeight:"100vh",background:"#eef2f9"}}>
+    <style>{css}</style><Header/>
+    {!adminUser ? (
+      <div style={{maxWidth:400,margin:"80px auto",padding:"0 16px"}}>
+        <div className="card" style={{padding:32,textAlign:"center"}}>
+          <div style={{fontSize:48,marginBottom:12}}>🔐</div>
+          <h2 style={{fontSize:20,fontWeight:700,color:BD,marginBottom:4}}>Panel de administrador</h2>
+          <p style={{fontSize:13,color:"#8a99b0",marginBottom:24}}>Acceso restringido</p>
+          <input className="input" type="email" value={adminEmail}
+            onChange={e=>setAdminEmail(e.target.value)}
+            placeholder="Correo electrónico" style={{marginBottom:10}}/>
+          <input className="input" type="password" value={adminPass}
+            onChange={e=>setAdminPass(e.target.value)}
+            onKeyDown={async e=>{
+              if(e.key==="Enter") {
+                setAdminLoading(true);
+                try {
+                  await signInWithEmailAndPassword(auth, adminEmail, adminPass);
+                  setAdminEmail(""); setAdminPass("");
+                } catch(e) {
+                  showToast("❌ Correo o contraseña incorrectos.");
+                } finally {
+                  setAdminLoading(false);
+                }
+              }
+            }}
+            placeholder="Contraseña" style={{marginBottom:12}}/>
+          <button className="btn btn-blue" style={{width:"100%",padding:13}}
+            disabled={adminLoading}
+            onClick={async()=>{
+              setAdminLoading(true);
+              try {
+                await signInWithEmailAndPassword(auth, adminEmail, adminPass);
+                setAdminEmail(""); setAdminPass("");
+              } catch(e) {
+                showToast("❌ Correo o contraseña incorrectos.");
+              } finally {
+                setAdminLoading(false);
+              }
+            }}>
+            {adminLoading ? "Iniciando sesión..." : "Ingresar"}
+          </button>
         </div>
-      ) : (
-        <div style={{maxWidth:780,margin:"0 auto",padding:"28px 16px 48px"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-            <div>
-              <h2 style={{fontSize:20,fontWeight:700,color:BD}}>⚙️ Panel de administrador</h2>
-              <p style={{fontSize:13,color:"#8a99b0"}}>Gestiona profesores y reseñas</p>
+      </div>
+    ) : (
+      <div style={{maxWidth:780,margin:"0 auto",padding:"28px 16px 48px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+          <div>
+            <h2 style={{fontSize:20,fontWeight:700,color:BD}}>⚙️ Panel de administrador</h2>
+            <p style={{fontSize:13,color:"#8a99b0"}}>Sesión: {adminUser.email}</p>
+          </div>
+          <button className="btn btn-ghost" style={{fontSize:13}} onClick={async()=>{
+            await signOut(auth);
+            navigate("home");
+          }}>Cerrar sesión</button>
+        </div>
+
+        {/* Stats */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:20}}>
+          {[{label:"Profesores",n:profesores.length,icon:"👨‍🏫",color:B},{label:"Reseñas totales",n:Object.values(resenas).flat().length,icon:"💬",color:OR},{label:"Reportes",n:reportes.length,icon:"🚨",color:"#DC2626"}].map(s=>(
+            <div key={s.label} className="card" style={{padding:"16px 20px",borderLeft:`4px solid ${s.color}`}}>
+              <div style={{fontSize:24,marginBottom:4}}>{s.icon}</div>
+              <div style={{fontSize:26,fontWeight:700,color:s.color}}>{s.n}</div>
+              <div style={{fontSize:12,color:"#8a99b0"}}>{s.label}</div>
             </div>
-            <button className="btn btn-ghost" style={{fontSize:13}} onClick={()=>{setAdminAuth(false);navigate("home");}}>Cerrar sesión</button>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:20}}>
-            {[{label:"Profesores",n:profesores.length,icon:"👨‍🏫",color:B},{label:"Reseñas totales",n:Object.values(resenas).flat().length,icon:"💬",color:OR},{label:"Facultades",n:FACULTADES.length-1,icon:"🏫",color:"#059669"}].map(s=>(
-              <div key={s.label} className="card" style={{padding:"16px 20px",borderLeft:`4px solid ${s.color}`}}>
-                <div style={{fontSize:24,marginBottom:4}}>{s.icon}</div>
-                <div style={{fontSize:26,fontWeight:700,color:s.color}}>{s.n}</div>
-                <div style={{fontSize:12,color:"#8a99b0"}}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-          <h3 style={{fontSize:16,fontWeight:700,color:BD,marginBottom:12}}>Profesores registrados</h3>
-          <div className="card" style={{padding:"4px 0",marginBottom:20}}>
-            {profesores.map((p,i)=>(
-              <div key={p.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 18px",borderTop:i>0?"1px solid #edf1f7":"none"}}>
-                <Avatar name={p.nombre} fac={p.facultad} size={38}/>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
-                  <div style={{fontSize:11,color:"#8a99b0"}}>{p.facultad} · {(p.cursos||[]).join(", ")} · {p.totalReseñas||0} reseñas</div>
-                </div>
-                <RatingChip r={p.rating}/>
-                <button className="btn btn-red" style={{fontSize:12,padding:"5px 12px",flexShrink:0}} onClick={()=>eliminarProfesor(p)}>🗑️ Eliminar</button>
-              </div>
-            ))}
-          </div>
-          {reportes.length>0 && <>
-            <h3 style={{fontSize:16,fontWeight:700,color:"#DC2626",marginBottom:12}}>
-              🚨 Reseñas reportadas ({reportes.length})
-            </h3>
-            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
-              {reportes.map(rep=>{
-                const prof = profesores.find(p=>p.id===rep.profId);
-                const resena = (resenas[rep.profId]||[]).find(r=>r.id===rep.resId);
-                return(
-                  <div key={rep.id} className="card" style={{padding:"14px 18px",border:"1.5px solid #fecaca"}}>
-                    <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:12,color:"#DC2626",fontWeight:600,marginBottom:4}}>
-                          🚨 Reseña reportada · {prof?.nombre||"Profesor eliminado"}
-                        </div>
-                        <p style={{fontSize:13,color:"#2d3a50",lineHeight:1.6}}>{rep.texto}</p>
+          ))}
+        </div>
+
+        {/* Reportes */}
+        {reportes.length>0 && <>
+          <h3 style={{fontSize:16,fontWeight:700,color:"#DC2626",marginBottom:12}}>🚨 Reseñas reportadas ({reportes.length})</h3>
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+            {reportes.map(rep=>{
+              const prof = profesores.find(p=>p.id===rep.profId);
+              const resena = (resenas[rep.profId]||[]).find(r=>r.id===rep.resId);
+              return(
+                <div key={rep.id} className="card" style={{padding:"14px 18px",border:"1.5px solid #fecaca"}}>
+                  <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12,color:"#DC2626",fontWeight:600,marginBottom:4}}>
+                        🚨 {prof?.nombre||"Profesor eliminado"}
                       </div>
-                      <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
-                        <button className="btn btn-red" style={{fontSize:12,padding:"5px 12px"}}
-                          onClick={async()=>{
-                            if(resena) await eliminarResena(prof, resena);
+                      <p style={{fontSize:13,color:"#2d3a50",lineHeight:1.6}}>{rep.texto}</p>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                      <button className="btn btn-red" style={{fontSize:12,padding:"5px 12px"}}
+                        onClick={async()=>{
+                          try {
+                            if(resena && prof) await eliminarResena(prof, resena);
                             await deleteDoc(doc(db,"reportes",rep.id));
                             showToast("🗑️ Reseña eliminada.");
-                          }}>
-                          🗑️ Eliminar reseña
-                        </button>
-                        <button className="btn btn-ghost" style={{fontSize:12,padding:"5px 12px"}}
-                          onClick={async()=>{
-                            await deleteDoc(doc(db,"reportes",rep.id));
-                            showToast("✅ Reporte descartado.");
-                          }}>
-                          Ignorar reporte
-                        </button>
-                      </div>
+                          } catch(e) {
+                            showToast("❌ Error al eliminar.");
+                          }
+                        }}>🗑️ Eliminar reseña</button>
+                      <button className="btn btn-ghost" style={{fontSize:12,padding:"5px 12px"}}
+                        onClick={async()=>{
+                          await deleteDoc(doc(db,"reportes",rep.id));
+                          showToast("✅ Reporte descartado.");
+                        }}>Ignorar</button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </>}
-          <h3 style={{fontSize:16,fontWeight:700,color:BD,marginBottom:12}}>Reseñas recientes</h3>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {profesores.flatMap(p=>(resenas[p.id]||[]).map(r=>{
-              const rAvg = avg(CRIT.map(c=>r.criterios[c]));
-              return (
-                <div key={r.id} className="card" style={{padding:"14px 18px",display:"flex",gap:12,alignItems:"flex-start"}}>
-                  <Avatar name={p.nombre} fac={p.facultad} size={36}/>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
-                      <span style={{fontSize:13,fontWeight:600}}>{p.nombre}</span>
-                      <span style={{background:`${ratingColor(rAvg)}18`,color:ratingColor(rAvg),fontWeight:700,fontSize:12,padding:"2px 8px",borderRadius:8}}>★ {rAvg.toFixed(1)}</span>
-                      {r.carrera && <span style={{fontSize:11,color:"#8a99b0"}}>🎓 {r.carrera}</span>}
-                      {r.ciclo && <span style={{fontSize:11,color:"#8a99b0"}}>Ciclo {r.ciclo}</span>}
-                    </div>
-                    <p style={{fontSize:13,color:"#2d3a50",lineHeight:1.6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.texto}</p>
-                  </div>
-                  <button className="btn btn-red" style={{fontSize:12,padding:"5px 12px",flexShrink:0}} onClick={()=>eliminarResena(p,r)}>🗑️</button>
                 </div>
               );
-            }))}
+            })}
           </div>
+        </>}
+
+        {/* Profesores */}
+        <h3 style={{fontSize:16,fontWeight:700,color:BD,marginBottom:12}}>Profesores registrados</h3>
+        <div className="card" style={{padding:"4px 0",marginBottom:20}}>
+          {profesores.map((p,i)=>(
+            <div key={p.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 18px",borderTop:i>0?"1px solid #edf1f7":"none"}}>
+              <Avatar name={p.nombre} fac={p.facultad} size={38}/>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
+                <div style={{fontSize:11,color:"#8a99b0"}}>{p.facultad} · {(p.cursos||[]).join(", ")} · {p.totalReseñas||0} reseñas</div>
+              </div>
+              <RatingChip r={p.rating}/>
+              <button className="btn btn-red" style={{fontSize:12,padding:"5px 12px",flexShrink:0}} onClick={()=>eliminarProfesor(p)}>🗑️ Eliminar</button>
+            </div>
+          ))}
         </div>
-      )}
-      {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
-    </div>
-  );
+
+        {/* Reseñas */}
+        <h3 style={{fontSize:16,fontWeight:700,color:BD,marginBottom:12}}>Reseñas recientes</h3>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {profesores.flatMap(p=>(resenas[p.id]||[]).map(r=>{
+            const rAvg = avg(CRIT.map(c=>r.criterios[c]));
+            return (
+              <div key={r.id} className="card" style={{padding:"14px 18px",display:"flex",gap:12,alignItems:"flex-start"}}>
+                <Avatar name={p.nombre} fac={p.facultad} size={36}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
+                    <span style={{fontSize:13,fontWeight:600}}>{p.nombre}</span>
+                    <span style={{background:`${ratingColor(rAvg)}18`,color:ratingColor(rAvg),fontWeight:700,fontSize:12,padding:"2px 8px",borderRadius:8}}>★ {rAvg.toFixed(1)}</span>
+                    {r.carrera && <span style={{fontSize:11,color:"#8a99b0"}}>🎓 {r.carrera}</span>}
+                    {r.ciclo && <span style={{fontSize:11,color:"#8a99b0"}}>Ciclo {r.ciclo}</span>}
+                  </div>
+                  <p style={{fontSize:13,color:"#2d3a50",lineHeight:1.6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.texto}</p>
+                </div>
+                <button className="btn btn-red" style={{fontSize:12,padding:"5px 12px",flexShrink:0}} onClick={()=>eliminarResena(p,r)}>🗑️</button>
+              </div>
+            );
+          }))}
+        </div>
+      </div>
+    )}
+    {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
+  </div>
+);
 
   return null;
 }
