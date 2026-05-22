@@ -3,8 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, getDocs, onSnapshot, query, orderBy, serverTimestamp } from "firebase/firestore";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 
-const auth = getAuth(firebaseApp);
-
+// 1. Primero defines la configuración
 const firebaseConfig = {
   apiKey: "AIzaSyAlh41094phxhm6NZDyzKFENmivi5ceRuI",
   authDomain: "ratemyprofe-fea08.firebaseapp.com",
@@ -13,8 +12,10 @@ const firebaseConfig = {
   messagingSenderId: "103032053506",
   appId: "1:103032053506:web:74f887daba6bc94a6fac1b"
 };
+
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
+const auth = getAuth(firebaseApp);
 
 const COL_RESENAS = "resenas";
 const B="#1560AA", BD="#0C447C", BL="#deeaf8", OR="#E87722";
