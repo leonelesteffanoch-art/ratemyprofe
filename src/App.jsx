@@ -166,6 +166,15 @@ body{font-family:'Inter',sans-serif;background:#eef2f9;-webkit-font-smoothing:an
 }
 `;
 
+const FRASES_INICIO = [
+  "Opiniones reales de estudiantes de la Científica del Sur.",
+  "Descubre quiénes son los mejores profes este ciclo.",
+  "Tu guía de supervivencia para armar tu horario.",
+  "Califica, comparte y ayuda a otros estudiantes.",
+  "La verdad sobre tus profes, contada por estudiantes.",
+  "Elige tus cursos sabiamente."
+];
+
 export default function App() {
   const [page, setPage] = useState("home");
   const [profesores, setProfesores] = useState([]);
@@ -187,6 +196,7 @@ export default function App() {
   const [adminLoading, setAdminLoading] = useState(false);
   const [reportes, setReportes] = useState([]);
   const formRef = useRef();
+  const [fraseInicio, setFraseInicio] = useState(FRASES_INICIO[0]);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db,"profesores"), snap => {
@@ -229,6 +239,13 @@ export default function App() {
   });
   return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (page === "home") {
+      const fraseAleatoria = FRASES_INICIO[Math.floor(Math.random() * FRASES_INICIO.length)];
+      setFraseInicio(fraseAleatoria);
+    }
+  }, [page]);
 
   const showToast = msg => setToast(msg);
 
@@ -375,7 +392,7 @@ export default function App() {
             <span style={{fontSize:12,color:"rgba(255,255,255,.9)",fontWeight:500}}>🔒 100% anónimo · sin registro</span>
           </div>
           <h1 style={{color:"#fff",fontSize:26,fontWeight:700,marginBottom:8,lineHeight:1.2}}>¿Qué profesor te tocó este ciclo?</h1>
-          <p style={{color:"rgba(255,255,255,.65)",fontSize:14,marginBottom:24}}>Opiniones reales de estudiantes de la Científica del Sur.</p>
+          <p style={{color:"rgba(255,255,255,.65)",fontSize:14,marginBottom:24}}>{fraseInicio}</p>
           <div style={{display:"flex",gap:10,background:"rgba(255,255,255,.12)",borderRadius:16,padding:8}}>
             <input className="input" value={busqueda} onChange={e=>setBusqueda(e.target.value)}
               placeholder="🔍  Buscar por nombre o curso..." style={{flex:1,border:"none",background:"rgba(255,255,255,.95)"}}/>
