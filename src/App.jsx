@@ -3,7 +3,6 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, getDocs, onSnapshot, query, orderBy, serverTimestamp } from "firebase/firestore";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 
-// 1. Primero defines la configuración
 const firebaseConfig = {
   apiKey: "AIzaSyAlh41094phxhm6NZDyzKFENmivi5ceRuI",
   authDomain: "ratemyprofe-fea08.firebaseapp.com",
@@ -19,58 +18,40 @@ const auth = getAuth(firebaseApp);
 
 const COL_RESENAS = "resenas";
 const B="#1560AA", BD="#0C447C", BL="#deeaf8", OR="#E87722";
-const ADMIN_PASS = import.meta.env.VITE_ADMIN_PASS;
 
-// ── Claves EXACTAMENTE igual a como están en Firebase ──
 const FAC_COLOR = {
-  "Ciencias de la Arquitectura":"#B45309",
-  "Ciencias Biológicas":"#059669",
-  "Ciencias de la Comunicación y Creatividad":"#9333EA",
-  "Ciencias Empresariales":"#0891B2",
-  "Ciencias de la Ingenieria":"#1560AA",
-  "Ciencias de la Salud":"#E87722",
-  "Ciencias Políticas y Derecho":"#7C3AED",
-  "Ciencias de la Educación":"#DB2777",
+  "Ciencias de la Arquitectura":"#B45309","Ciencias Biológicas":"#059669",
+  "Ciencias de la Comunicación y Creatividad":"#9333EA","Ciencias Empresariales":"#0891B2",
+  "Ciencias de la Ingenieria":"#1560AA","Ciencias de la Salud":"#E87722",
+  "Ciencias Políticas y Derecho":"#7C3AED","Ciencias de la Educación":"#DB2777",
 };
 const FAC_BG = {
-  "Ciencias de la Arquitectura":"#fef3c7",
-  "Ciencias Biológicas":"#d1fae5",
-  "Ciencias de la Comunicación y Creatividad":"#f3e8ff",
-  "Ciencias Empresariales":"#e0f2fe",
-  "Ciencias de la Ingenieria":"#deeaf8",
-  "Ciencias de la Salud":"#fff3e0",
-  "Ciencias Políticas y Derecho":"#ede9fe",
-  "Ciencias de la Educación":"#fce7f3",
+  "Ciencias de la Arquitectura":"#fef3c7","Ciencias Biológicas":"#d1fae5",
+  "Ciencias de la Comunicación y Creatividad":"#f3e8ff","Ciencias Empresariales":"#e0f2fe",
+  "Ciencias de la Ingenieria":"#deeaf8","Ciencias de la Salud":"#fff3e0",
+  "Ciencias Políticas y Derecho":"#ede9fe","Ciencias de la Educación":"#fce7f3",
 };
 const FAC_EMOJI = {
-  "Ciencias de la Arquitectura":"🏛️",
-  "Ciencias Biológicas":"🔬",
-  "Ciencias de la Comunicación y Creatividad":"🎨",
-  "Ciencias Empresariales":"📊",
-  "Ciencias de la Ingenieria":"⚙️",
-  "Ciencias de la Salud":"🩺",
-  "Ciencias Políticas y Derecho":"⚖️",
-  "Ciencias de la Educación":"📚",
+  "Ciencias de la Arquitectura":"🏛️","Ciencias Biológicas":"🔬",
+  "Ciencias de la Comunicación y Creatividad":"🎨","Ciencias Empresariales":"📊",
+  "Ciencias de la Ingenieria":"⚙️","Ciencias de la Salud":"🩺",
+  "Ciencias Políticas y Derecho":"⚖️","Ciencias de la Educación":"📚",
 };
-
-// Claves idénticas a Firebase — con tildes excepto Ingenieria
-const FACULTADES = [
-  "Todas",
-  "Ciencias de la Arquitectura",
-  "Ciencias Biológicas",
-  "Ciencias de la Comunicación y Creatividad",
-  "Ciencias Empresariales",
-  "Ciencias de la Ingenieria",
-  "Ciencias de la Salud",
-  "Ciencias Políticas y Derecho",
-  "Ciencias de la Educación",
-];
-
+const FACULTADES = ["Todas","Ciencias de la Arquitectura","Ciencias Biológicas","Ciencias de la Comunicación y Creatividad","Ciencias Empresariales","Ciencias de la Ingenieria","Ciencias de la Salud","Ciencias Políticas y Derecho","Ciencias de la Educación"];
 const CRIT = ["claridad","puntualidad","trato","examenes"];
 const CRIT_LABEL = {claridad:"Claridad",puntualidad:"Puntualidad",trato:"Trato",examenes:"Exámenes"};
 const CRIT_ICON = {claridad:"💡",puntualidad:"⏰",trato:"🤝",examenes:"📝"};
 const FORM_EMPTY = {texto:"",claridad:0,puntualidad:0,trato:0,examenes:0,carrera:"",ciclo:""};
 const ADD_EMPTY = {nombre:"",facultad:"Ciencias de la Ingenieria",curso:"",bio:""};
+
+const FRASES_INICIO = [
+  "Opiniones reales de estudiantes de la Científica del Sur.",
+  "Descubre quiénes son los mejores profes este ciclo.",
+  "Tu guía de supervivencia para armar tu horario.",
+  "Califica, comparte y ayuda a otros estudiantes.",
+  "La verdad sobre tus profes, contada por estudiantes.",
+  "Elige tus cursos sabiamente."
+];
 
 const avg = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
 const initials = n => n.split(" ").map(x=>x[0]).slice(0,2).join("");
@@ -82,6 +63,16 @@ const timeAgo = d => {
   return diff<1?"Hoy":diff<7?`Hace ${Math.floor(diff)}d`:new Date(d).toLocaleDateString("es-PE",{day:"numeric",month:"short"});
 };
 const calcRating = rs => rs.length ? parseFloat(avg(rs.map(x=>avg(CRIT.map(c=>x.criterios[c])))).toFixed(1)) : 0;
+
+// Similitud entre strings para detectar nombres parecidos
+const similarity = (a, b) => {
+  a = a.toLowerCase().trim(); b = b.toLowerCase().trim();
+  if(a===b) return 1;
+  if(a.includes(b) || b.includes(a)) return 0.9;
+  const words_a = a.split(" "), words_b = b.split(" ");
+  const matches = words_a.filter(w=>words_b.some(wb=>wb.startsWith(w)||w.startsWith(wb)));
+  return matches.length / Math.max(words_a.length, words_b.length);
+};
 
 const Stars = ({value, onChange, size=16, gap=2}) => (
   <span style={{display:"inline-flex",gap}}>
@@ -142,6 +133,7 @@ body{font-family:'Inter',sans-serif;background:#eef2f9;-webkit-font-smoothing:an
 .btn-orange{background:#E87722;color:#fff}.btn-orange:hover{background:#c96818}
 .btn-ghost{background:#f0f4fa;color:#3a4a60}.btn-ghost:hover{background:#e2eaf5}
 .btn-red{background:#fef2f2;color:#DC2626;border:1px solid #fecaca}.btn-red:hover{background:#fee2e2}
+.btn-green{background:#d1fae5;color:#059669;border:1px solid #6ee7b7}.btn-green:hover{background:#a7f3d0}
 .input{width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid #d8e3ef;font-size:14px;font-family:inherit;outline:none;transition:border .2s,box-shadow .2s;background:#fafcff}
 .input:focus{border-color:#1560AA;box-shadow:0 0 0 3px #1560AA18}
 .textarea{width:100%;min-height:100px;padding:12px 14px;border-radius:12px;border:1.5px solid #d8e3ef;font-size:14px;resize:vertical;font-family:inherit;outline:none;transition:border .2s;background:#fafcff}
@@ -166,15 +158,6 @@ body{font-family:'Inter',sans-serif;background:#eef2f9;-webkit-font-smoothing:an
 }
 `;
 
-const FRASES_INICIO = [
-  "Opiniones reales de estudiantes de la Científica del Sur.",
-  "Descubre quiénes son los mejores profes este ciclo.",
-  "Tu guía de supervivencia para armar tu horario.",
-  "Califica, comparte y ayuda a otros estudiantes.",
-  "La verdad sobre tus profes, contada por estudiantes.",
-  "Elige tus cursos sabiamente."
-];
-
 export default function App() {
   const [page, setPage] = useState("home");
   const [profesores, setProfesores] = useState([]);
@@ -187,6 +170,9 @@ export default function App() {
   const [form, setForm] = useState(FORM_EMPTY);
   const [formErr, setFormErr] = useState("");
   const [addProf, setAddProf] = useState(ADD_EMPTY);
+  const [addMode, setAddMode] = useState("nuevo"); // "nuevo" | "curso"
+  const [addProfSel, setAddProfSel] = useState(null); // profesor seleccionado para agregar curso
+  const [addCurso, setAddCurso] = useState("");
   const [toast, setToast] = useState(null);
   const [rankTab, setRankTab] = useState("top");
   const [loading, setLoading] = useState(true);
@@ -195,8 +181,10 @@ export default function App() {
   const [adminPass, setAdminPass] = useState("");
   const [adminLoading, setAdminLoading] = useState(false);
   const [reportes, setReportes] = useState([]);
-  const formRef = useRef();
   const [fraseInicio, setFraseInicio] = useState(FRASES_INICIO[0]);
+  const [editCursoProf, setEditCursoProf] = useState(null); // para admin
+  const [editCursoVal, setEditCursoVal] = useState("");
+  const formRef = useRef();
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db,"profesores"), snap => {
@@ -208,11 +196,7 @@ export default function App() {
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db,"config","carreras"), snap => {
-      if(snap.exists()){
-        // Log para debug — puedes quitarlo luego
-        console.log("Carreras cargadas:", snap.data());
-        setCarreras(snap.data());
-      }
+      if(snap.exists()) setCarreras(snap.data());
     });
     return () => unsub();
   }, []);
@@ -227,30 +211,26 @@ export default function App() {
   }, [selProf]);
 
   useEffect(() => {
-  const unsub = onSnapshot(collection(db,"reportes"), snap => {
-    setReportes(snap.docs.map(d=>({id:d.id,...d.data()})));
-  });
-  return () => unsub();
+    const unsub = onSnapshot(collection(db,"reportes"), snap => {
+      setReportes(snap.docs.map(d=>({id:d.id,...d.data()})));
+    });
+    return () => unsub();
   }, []);
 
   useEffect(() => {
-  const unsub = onAuthStateChanged(auth, user => {
-    setAdminUser(user);
-  });
-  return () => unsub();
+    const unsub = onAuthStateChanged(auth, user => setAdminUser(user));
+    return () => unsub();
   }, []);
 
   useEffect(() => {
-    if (page === "home") {
-      const fraseAleatoria = FRASES_INICIO[Math.floor(Math.random() * FRASES_INICIO.length)];
-      setFraseInicio(fraseAleatoria);
-    }
+    if(page==="home") setFraseInicio(FRASES_INICIO[Math.floor(Math.random()*FRASES_INICIO.length)]);
   }, [page]);
 
   const showToast = msg => setToast(msg);
 
   const navigate = (p, prof=null) => {
-    setPage(p); setFormErr(""); setForm(FORM_EMPTY); setAddProf(ADD_EMPTY);
+    setPage(p); setFormErr(""); setForm(FORM_EMPTY);
+    setAddProf(ADD_EMPTY); setAddMode("nuevo"); setAddProfSel(null); setAddCurso("");
     if(prof) setSelProf(prof);
     window.scrollTo(0,0);
   };
@@ -261,9 +241,9 @@ export default function App() {
     }
     try {
       const r = {
-        texto: form.texto,
-        criterios: {claridad:form.claridad,puntualidad:form.puntualidad,trato:form.trato,examenes:form.examenes},
-        carrera: form.carrera||"", ciclo: form.ciclo||"",
+        texto:form.texto,
+        criterios:{claridad:form.claridad,puntualidad:form.puntualidad,trato:form.trato,examenes:form.examenes},
+        carrera:form.carrera||"", ciclo:form.ciclo||"",
         util:0, noUtil:0, createdAt:serverTimestamp()
       };
       await addDoc(collection(db,"profesores",selProf.id,COL_RESENAS), r);
@@ -271,45 +251,76 @@ export default function App() {
       await updateDoc(doc(db,"profesores",selProf.id), {rating:calcRating(allR), totalReseñas:allR.length});
       setForm(FORM_EMPTY); setFormErr("");
       showToast("✅ ¡Reseña publicada de forma anónima!");
-    } catch(e) {
-      showToast("❌ Error al publicar la reseña. Verifica tu conexión.");
-    }
+    } catch(e) { showToast("❌ Error al publicar. Verifica tu conexión."); }
   };
 
+  // Crear profesor nuevo
   const submitAddProf = async () => {
-    if(!addProf.nombre.trim()||!addProf.curso.trim()) { showToast("⚠️ Completa el nombre y el curso."); return; }
+    if(!addProf.nombre.trim()) { showToast("⚠️ Escribe el nombre del profesor."); return; }
+    if(!addProf.curso.trim()) { showToast("⚠️ Escribe al menos un curso."); return; }
+    // Verificar si ya existe uno muy similar
+    const similar = profesores.find(p=>similarity(p.nombre, addProf.nombre)>0.85);
+    if(similar) {
+      showToast(`⚠️ Ya existe "${similar.nombre}". ¿Quisiste agregar un curso a ese profesor?`);
+      setAddProfSel(similar); setAddMode("curso"); setAddCurso(addProf.curso);
+      return;
+    }
     try {
       await addDoc(collection(db,"profesores"), {
-        nombre:addProf.nombre, facultad:addProf.facultad, cursos:[addProf.curso],
-        bio:addProf.bio||"Profesor de la Universidad Científica del Sur.",
+        nombre:addProf.nombre.trim(), facultad:addProf.facultad,
+        cursos:[addProf.curso.trim()],
+        bio:addProf.bio.trim()||"Profesor de la Universidad Científica del Sur.",
         rating:0, totalReseñas:0, createdAt:serverTimestamp()
       });
       showToast("✅ ¡Profesor agregado!");
       setTimeout(()=>navigate("home"), 1200);
-    } catch(e) {
-      showToast("❌ Error al agregar el profesor. Verifica tu conexión.");
-    }
-  };  
+    } catch(e) { showToast("❌ Error al agregar. Verifica tu conexión."); }
+  };
 
-  const agregarCursoAProfe = async (prof) => {
-    if(!addProf.curso.trim()) { showToast("⚠️ Escribe el curso."); return; }
-    if((prof.cursos||[]).includes(addProf.curso)) { showToast("⚠️ Ese curso ya existe."); return; }
-    try {
-      await updateDoc(doc(db,"profesores",prof.id), {cursos:[...(prof.cursos||[]),addProf.curso]});
-      showToast("✅ ¡Curso agregado!");
-      setTimeout(()=>navigate("home"), 1200);
-    } catch(e) {
-      showToast("❌ Error al agregar el curso. Verifica tu conexión.");
+  // Agregar curso a profesor existente
+  const submitAgregarCurso = async () => {
+    if(!addProfSel) return;
+    if(!addCurso.trim()) { showToast("⚠️ Escribe el nombre del curso."); return; }
+    if((addProfSel.cursos||[]).map(c=>c.toLowerCase()).includes(addCurso.trim().toLowerCase())) {
+      showToast("⚠️ Ese curso ya está registrado para este profesor."); return;
     }
+    try {
+      await updateDoc(doc(db,"profesores",addProfSel.id), {
+        cursos:[...(addProfSel.cursos||[]), addCurso.trim()]
+      });
+      showToast(`✅ Curso "${addCurso.trim()}" agregado a ${addProfSel.nombre}`);
+      setTimeout(()=>navigate("home"), 1200);
+    } catch(e) { showToast("❌ Error al agregar el curso. Verifica tu conexión."); }
+  };
+
+  // Eliminar curso de un profesor (admin)
+  const eliminarCurso = async (prof, curso) => {
+    if(!window.confirm(`¿Eliminar el curso "${curso}" de ${prof.nombre}?`)) return;
+    try {
+      const nuevos = (prof.cursos||[]).filter(c=>c!==curso);
+      await updateDoc(doc(db,"profesores",prof.id), {cursos:nuevos});
+      showToast("✅ Curso eliminado.");
+    } catch(e) { showToast("❌ Error al eliminar el curso."); }
+  };
+
+  // Agregar curso desde admin
+  const adminAgregarCurso = async (prof) => {
+    if(!editCursoVal.trim()) { showToast("⚠️ Escribe el nombre del curso."); return; }
+    if((prof.cursos||[]).map(c=>c.toLowerCase()).includes(editCursoVal.trim().toLowerCase())) {
+      showToast("⚠️ Ese curso ya existe."); return;
+    }
+    try {
+      await updateDoc(doc(db,"profesores",prof.id), {cursos:[...(prof.cursos||[]),editCursoVal.trim()]});
+      setEditCursoProf(null); setEditCursoVal("");
+      showToast("✅ Curso agregado.");
+    } catch(e) { showToast("❌ Error al agregar el curso."); }
   };
 
   const toggleUtil = async (profId, resId, tipo) => {
     const r = resenas[profId]?.find(x=>x.id===resId); if(!r) return;
     try {
       await updateDoc(doc(db,"profesores",profId,COL_RESENAS,resId), {[tipo]:(r[tipo]||0)+1});
-    } catch(e) {
-      showToast("❌ Error al registrar tu voto.");
-    }
+    } catch(e) { showToast("❌ Error al registrar tu voto."); }
   };
 
   const eliminarProfesor = async (p) => {
@@ -319,9 +330,7 @@ export default function App() {
       for(const r of rSnap.docs) await deleteDoc(doc(db,"profesores",p.id,COL_RESENAS,r.id));
       await deleteDoc(doc(db,"profesores",p.id));
       showToast(`🗑️ ${p.nombre} eliminado.`);
-    } catch(e) {
-      showToast("❌ Error al eliminar el profesor. Verifica tu conexión.");
-    }
+    } catch(e) { showToast("❌ Error al eliminar. Verifica tu conexión."); }
   };
 
   const eliminarResena = async (p, r) => {
@@ -334,25 +343,16 @@ export default function App() {
       setResenas(prev=>({...prev,[p.id]:remaining}));
       setProfesores(prev=>prev.map(x=>x.id===p.id?{...x,rating:newRating,totalReseñas:remaining.length}:x));
       showToast("🗑️ Reseña eliminada.");
-    } catch(e) {
-      showToast("❌ Error al eliminar la reseña. Verifica tu conexión.");
-    }
+    } catch(e) { showToast("❌ Error al eliminar. Verifica tu conexión."); }
   };
 
   const reportarResena = async (profId, resId, texto, profNombre) => {
     if(!window.confirm("¿Reportar esta reseña como inapropiada o falsa?")) return;
-    const yaReportada = reportes.some(r=>r.resId===resId);
-    if(yaReportada){ showToast("⚠️ Esta reseña ya fue reportada."); return; }
+    if(reportes.some(r=>r.resId===resId)){ showToast("⚠️ Esta reseña ya fue reportada."); return; }
     try {
-      await addDoc(collection(db,"reportes"), {
-        profId, resId, texto, profNombre,
-        fecha: serverTimestamp(),
-        estado: "pendiente"
-      });
+      await addDoc(collection(db,"reportes"), {profId,resId,texto,profNombre,fecha:serverTimestamp(),estado:"pendiente"});
       showToast("⚠️ Reseña reportada. La revisaremos pronto.");
-    } catch(e) {
-      showToast("❌ Error al enviar el reporte. Verifica tu conexión.");
-    }
+    } catch(e) { showToast("❌ Error al enviar el reporte."); }
   };
 
   const allR = selProf ? (resenas[selProf.id]||[]) : [];
@@ -374,14 +374,14 @@ export default function App() {
       </span>
       <span style={{flex:1}}/>
       <nav style={{display:"flex",gap:2,overflowX:"auto",flexShrink:1,minWidth:0}}>
-      {[["home","🏠 Inicio"],["ranking","🏆 Ranking"],["agregar","➕ Agregar"],["admin","⚙️"]].map(([p,l])=>(
-        <span key={p} className={`nav-link${page===p?" active":""}`} onClick={()=>navigate(p)}
-          style={{padding:"7px 10px"}}>{l}</span>
-      ))}
+        {[["home","🏠 Inicio"],["ranking","🏆 Ranking"],["agregar","➕ Agregar"],["admin","⚙️"]].map(([p,l])=>(
+          <span key={p} className={`nav-link${page===p?" active":""}`} onClick={()=>navigate(p)} style={{padding:"7px 10px"}}>{l}</span>
+        ))}
       </nav>
     </div>
   );
 
+  // ── HOME ──
   if(page==="home") return (
     <div style={{fontFamily:"Inter,sans-serif",minHeight:"100vh",background:"#eef2f9"}}>
       <style>{css}</style><Header/>
@@ -461,6 +461,7 @@ export default function App() {
     </div>
   );
 
+  // ── RANKING ──
   if(page==="ranking") {
     const withR = profesores.filter(p=>p.totalReseñas>0);
     const top = [...withR].sort((a,b)=>b.rating-a.rating);
@@ -542,114 +543,194 @@ export default function App() {
     );
   }
 
+  // ── AGREGAR ──
   if(page==="agregar") {
-    const sugerencias = addProf.nombre.length>=2 ? profesores.filter(p=>p.nombre.toLowerCase().includes(addProf.nombre.toLowerCase())) : [];
+    const sugerencias = addProf.nombre.length>=2
+      ? profesores.filter(p=>similarity(p.nombre, addProf.nombre)>0.4).sort((a,b)=>similarity(b.nombre,addProf.nombre)-similarity(a.nombre,addProf.nombre)).slice(0,5)
+      : [];
     const cursosExistentes = [...new Set(profesores.filter(p=>p.facultad===addProf.facultad).flatMap(p=>p.cursos||[]))];
-    const exact = profesores.find(p=>p.nombre.toLowerCase()===addProf.nombre.toLowerCase());
+
     return (
       <div style={{fontFamily:"Inter,sans-serif",minHeight:"100vh",background:"#eef2f9"}}>
         <style>{css}</style><Header/>
-        <div style={{maxWidth:500,margin:"0 auto",padding:"32px 16px 48px"}}>
+        <div style={{maxWidth:540,margin:"0 auto",padding:"32px 16px 48px"}}>
           <div style={{textAlign:"center",marginBottom:24}}>
             <div style={{fontSize:48,marginBottom:8}}>👨‍🏫</div>
             <h2 style={{fontSize:20,fontWeight:700,color:BD,marginBottom:4}}>Agregar un profesor</h2>
-            <p style={{fontSize:13,color:"#8a99b0"}}>¿Tu profe no aparece? Agrégalo y sé el primero en calificarlo.</p>
+            <p style={{fontSize:13,color:"#8a99b0"}}>Ayuda a otros estudiantes agregando a un profesor o un nuevo curso.</p>
           </div>
-          <div className="card" style={{padding:26,display:"flex",flexDirection:"column",gap:16}}>
-            <div style={{position:"relative"}}>
-              <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Nombre completo del profesor</label>
-              <input className="input" value={addProf.nombre} onChange={e=>setAddProf(p=>({...p,nombre:e.target.value}))} placeholder="Ej. Juan Pérez García" autoComplete="off"/>
-              {sugerencias.length>0 && (
-                <div style={{position:"absolute",top:"100%",left:0,right:0,background:"#fff",border:"1.5px solid #d8e3ef",borderRadius:12,marginTop:4,zIndex:50,boxShadow:"0 8px 24px rgba(0,0,0,.1)",overflow:"hidden"}}>
-                  <div style={{padding:"8px 14px",fontSize:11,color:"#8a99b0",fontWeight:600,borderBottom:"1px solid #edf1f7"}}>PROFESORES EXISTENTES</div>
-                  {sugerencias.map(p=>(
-                    <div key={p.id} onClick={()=>setAddProf(prev=>({...prev,nombre:p.nombre,facultad:p.facultad}))}
-                      style={{padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #f5f7fa"}}
-                      onMouseEnter={e=>e.currentTarget.style.background="#f7f9fc"}
-                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                      <Avatar name={p.nombre} fac={p.facultad} size={32}/>
-                      <div>
-                        <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
-                        <div style={{fontSize:11,color:"#8a99b0"}}>{p.facultad} · {(p.cursos||[]).join(", ")}</div>
+
+          {/* Tabs modo */}
+          <div style={{display:"flex",gap:4,background:"#e2eaf5",borderRadius:14,padding:4,marginBottom:20}}>
+            {[["nuevo","➕ Nuevo profesor"],["curso","📚 Agregar curso"]].map(([m,l])=>(
+              <button key={m} className="tab" onClick={()=>{setAddMode(m);setAddProfSel(null);setAddCurso("");}}
+                style={{flex:1,background:addMode===m?B:"transparent",color:addMode===m?"#fff":"#6b7a90"}}>{l}</button>
+            ))}
+          </div>
+
+          {/* MODO: Nuevo profesor */}
+          {addMode==="nuevo" && (
+            <div className="card" style={{padding:26,display:"flex",flexDirection:"column",gap:16}}>
+              <div style={{position:"relative"}}>
+                <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Nombre completo del profesor</label>
+                <input className="input" value={addProf.nombre} onChange={e=>setAddProf(p=>({...p,nombre:e.target.value}))} placeholder="Ej. Juan Pérez García" autoComplete="off"/>
+                {/* Sugerencias de similitud */}
+                {sugerencias.length>0 && (
+                  <div style={{marginTop:8,background:"#fff8f2",border:"1px solid #E87722",borderRadius:12,padding:"10px 14px"}}>
+                    <div style={{fontSize:11,color:"#E87722",fontWeight:600,marginBottom:8}}>⚠️ PROFESORES SIMILARES — ¿Ya existe?</div>
+                    {sugerencias.map(p=>(
+                      <div key={p.id}
+                        onClick={()=>{setAddProfSel(p);setAddMode("curso");}}
+                        style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderTop:"1px solid #fde8d0",cursor:"pointer"}}
+                        onMouseEnter={e=>e.currentTarget.style.opacity="0.7"}
+                        onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+                        <Avatar name={p.nombre} fac={p.facultad} size={32}/>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
+                          <div style={{fontSize:11,color:"#8a99b0"}}>{p.facultad} · {(p.cursos||[]).join(", ")}</div>
+                        </div>
+                        <span style={{fontSize:11,color:OR,fontWeight:600}}>Agregar curso →</span>
                       </div>
-                      <span style={{marginLeft:"auto",fontSize:11,color:B,fontWeight:500}}>Seleccionar</span>
+                    ))}
+                    <div style={{fontSize:11,color:"#8a99b0",marginTop:8}}>Si no es ninguno de estos, continúa creando el nuevo profesor.</div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Facultad</label>
+                <select className="input" style={{cursor:"pointer"}} value={addProf.facultad} onChange={e=>setAddProf(p=>({...p,facultad:e.target.value}))}>
+                  {FACULTADES.filter(f=>f!=="Todas").map(f=><option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Curso que enseña</label>
+                <input className="input" value={addProf.curso} onChange={e=>setAddProf(p=>({...p,curso:e.target.value}))} placeholder="Ej. Cálculo III" autoComplete="off"/>
+                {cursosExistentes.length>0 && (
+                  <div style={{marginTop:8}}>
+                    <div style={{fontSize:11,color:"#8a99b0",marginBottom:6,fontWeight:500}}>CURSOS YA REGISTRADOS EN ESTA FACULTAD</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {cursosExistentes.map(c=>(
+                        <span key={c} onClick={()=>setAddProf(p=>({...p,curso:c}))}
+                          style={{background:addProf.curso===c?FAC_COLOR[addProf.facultad]||B:FAC_BG[addProf.facultad]||BL,color:addProf.curso===c?"#fff":FAC_COLOR[addProf.facultad]||BD,padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",transition:"all .15s"}}>
+                          {c}
+                        </span>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Descripción (opcional)</label>
+                <input className="input" value={addProf.bio} onChange={e=>setAddProf(p=>({...p,bio:e.target.value}))} placeholder="Ej. Doctor con 10 años de experiencia."/>
+              </div>
+
+              {addProf.nombre && (
+                <div style={{background:"#f7f9fc",borderRadius:12,padding:"12px 14px",border:"1px dashed #d0dcea"}}>
+                  <div style={{fontSize:11,color:"#8a99b0",marginBottom:8,fontWeight:500}}>VISTA PREVIA</div>
+                  <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                    <Avatar name={addProf.nombre} fac={addProf.facultad} size={40}/>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:600}}>{addProf.nombre}</div>
+                      <div style={{fontSize:11,color:"#8a99b0"}}>{addProf.facultad}{addProf.curso&&` · ${addProf.curso}`}</div>
+                    </div>
+                  </div>
                 </div>
               )}
+              <button className="btn btn-blue" onClick={submitAddProf} style={{width:"100%",padding:13}}>Agregar profesor</button>
             </div>
-            <div>
-              <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Facultad</label>
-              <select className="input" style={{cursor:"pointer"}} value={addProf.facultad} onChange={e=>setAddProf(p=>({...p,facultad:e.target.value,curso:""}))}>
-                {FACULTADES.filter(f=>f!=="Todas").map(f=><option key={f} value={f}>{f}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Curso que enseña</label>
-              <input className="input" value={addProf.curso} onChange={e=>setAddProf(p=>({...p,curso:e.target.value}))} placeholder="Ej. Cálculo III" autoComplete="off"/>
-              {cursosExistentes.length>0 && (
-                <div style={{marginTop:8}}>
-                  <div style={{fontSize:11,color:"#8a99b0",marginBottom:6,fontWeight:500}}>CURSOS YA REGISTRADOS</div>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                    {cursosExistentes.map(c=>(
-                      <span key={c} onClick={()=>setAddProf(p=>({...p,curso:c}))}
-                        style={{background:addProf.curso===c?FAC_COLOR[addProf.facultad]||B:FAC_BG[addProf.facultad]||BL,color:addProf.curso===c?"#fff":FAC_COLOR[addProf.facultad]||BD,padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",transition:"all .15s"}}>
-                        {c}
-                      </span>
+          )}
+
+          {/* MODO: Agregar curso a profesor existente */}
+          {addMode==="curso" && (
+            <div className="card" style={{padding:26,display:"flex",flexDirection:"column",gap:16}}>
+              <div>
+                <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Buscar profesor</label>
+                <input className="input" placeholder="Escribe el nombre del profesor..." autoComplete="off"
+                  value={addProfSel?addProfSel.nombre:addProf.nombre}
+                  onChange={e=>{setAddProf(p=>({...p,nombre:e.target.value}));setAddProfSel(null);}}/>
+                {/* Lista de profesores */}
+                {!addProfSel && addProf.nombre.length>=2 && (
+                  <div style={{marginTop:6,border:"1.5px solid #d8e3ef",borderRadius:12,overflow:"hidden",background:"#fff",boxShadow:"0 4px 12px rgba(0,0,0,.08)"}}>
+                    {profesores.filter(p=>similarity(p.nombre,addProf.nombre)>0.3).sort((a,b)=>similarity(b.nombre,addProf.nombre)-similarity(a.nombre,addProf.nombre)).slice(0,6).map((p,i)=>(
+                      <div key={p.id} onClick={()=>setAddProfSel(p)}
+                        style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderTop:i>0?"1px solid #edf1f7":"none",cursor:"pointer"}}
+                        onMouseEnter={e=>e.currentTarget.style.background="#f7f9fc"}
+                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                        <Avatar name={p.nombre} fac={p.facultad} size={34}/>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
+                          <div style={{fontSize:11,color:"#8a99b0"}}>{p.facultad}</div>
+                        </div>
+                        <div style={{display:"flex",gap:4,flexWrap:"wrap",maxWidth:160}}>
+                          {(p.cursos||[]).slice(0,2).map(c=><span key={c} style={{fontSize:10,background:"#f3f6fb",padding:"2px 7px",borderRadius:10,color:"#5a6a80"}}>{c}</span>)}
+                          {(p.cursos||[]).length>2&&<span style={{fontSize:10,color:"#aaa"}}>+{p.cursos.length-2}</span>}
+                        </div>
+                      </div>
                     ))}
                   </div>
+                )}
+              </div>
+
+              {/* Profesor seleccionado */}
+              {addProfSel && (
+                <>
+                  <div style={{background:`${FAC_BG[addProfSel.facultad]||BL}`,borderRadius:12,padding:"14px 16px",border:`1.5px solid ${FAC_COLOR[addProfSel.facultad]||B}30`}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                      <Avatar name={addProfSel.nombre} fac={addProfSel.facultad} size={44}/>
+                      <div>
+                        <div style={{fontSize:14,fontWeight:600}}>{addProfSel.nombre}</div>
+                        <div style={{fontSize:12,color:"#6b7a90"}}>{addProfSel.facultad}</div>
+                      </div>
+                      <button className="btn btn-ghost" style={{marginLeft:"auto",fontSize:11,padding:"4px 10px"}} onClick={()=>{setAddProfSel(null);setAddProf(p=>({...p,nombre:""}));}}>✕ Cambiar</button>
+                    </div>
+                    <div style={{fontSize:11,color:"#6b7a90",marginBottom:6,fontWeight:500}}>CURSOS ACTUALES</div>
+                    <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                      {(addProfSel.cursos||[]).map(c=>(
+                        <span key={c} style={{background:"#fff",padding:"3px 10px",borderRadius:20,fontSize:12,color:FAC_COLOR[addProfSel.facultad]||BD,fontWeight:500,border:`1px solid ${FAC_COLOR[addProfSel.facultad]||B}30`}}>📚 {c}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Nuevo curso a agregar</label>
+                    <input className="input" value={addCurso} onChange={e=>setAddCurso(e.target.value)} placeholder="Ej. Cálculo III" autoComplete="off"/>
+                  </div>
+                  <button className="btn btn-orange" onClick={submitAgregarCurso} style={{width:"100%",padding:13}}>
+                    Agregar curso a {addProfSel.nombre.split(" ")[0]}
+                  </button>
+                </>
+              )}
+
+              {!addProfSel && (
+                <div style={{textAlign:"center",padding:"20px 0",color:"#aaa",fontSize:13}}>
+                  Busca y selecciona un profesor para agregar un curso
                 </div>
               )}
             </div>
-            <div>
-              <label style={{fontSize:13,fontWeight:500,color:"#3a4a60",display:"block",marginBottom:6}}>Descripción (opcional)</label>
-              <input className="input" value={addProf.bio} onChange={e=>setAddProf(p=>({...p,bio:e.target.value}))} placeholder="Ej. Doctor con 10 años de experiencia."/>
-            </div>
-            {addProf.nombre && (
-              <div style={{background:"#f7f9fc",borderRadius:12,padding:"12px 14px",border:"1px dashed #d0dcea"}}>
-                <div style={{fontSize:11,color:"#8a99b0",marginBottom:8,fontWeight:500}}>VISTA PREVIA</div>
-                <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                  <Avatar name={addProf.nombre} fac={addProf.facultad} size={40}/>
-                  <div>
-                    <div style={{fontSize:13,fontWeight:600}}>{addProf.nombre}</div>
-                    <div style={{fontSize:11,color:"#8a99b0"}}>{addProf.facultad}{addProf.curso&&` · ${addProf.curso}`}</div>
-                  </div>
-                </div>
-              </div>
-            )}
-            {exact && addProf.curso ? (
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                <div style={{background:"#fff4eb",border:"1px solid #E87722",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#8a99b0"}}>
-                  ⚠️ <strong style={{color:"#1a2540"}}>{exact.nombre}</strong> ya existe. ¿Agregar <strong style={{color:OR}}>"{addProf.curso}"</strong> a su perfil?
-                </div>
-                <button className="btn btn-orange" onClick={()=>agregarCursoAProfe(exact)} style={{width:"100%",padding:13}}>Agregar curso al profesor existente</button>
-                <button className="btn btn-ghost" onClick={submitAddProf} style={{width:"100%",padding:13}}>Crear como profesor nuevo</button>
-              </div>
-            ) : (
-              <button className="btn btn-blue" onClick={submitAddProf} style={{width:"100%",padding:13}}>Agregar profesor</button>
-            )}
-          </div>
+          )}
         </div>
         {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
       </div>
     );
   }
 
+  // ── PERFIL ──
   if(page==="perfil" && selProf) return (
     <div style={{fontFamily:"Inter,sans-serif",minHeight:"100vh",background:"#eef2f9"}}>
       <style>{css}</style><Header/>
       <div style={{maxWidth:780,margin:"0 auto",padding:"20px 16px 48px"}}>
-        <button className="btn btn-ghost" onClick={()=>navigate("home")} style={{marginBottom:16,fontSize:13,padding:"7px 14px"}}>← Volver</button>
-        <div style={{display:"flex",gap:8,marginBottom:16}}>
-        <button className="btn btn-ghost" style={{fontSize:13,padding:"7px 14px"}}
-          onClick={()=>{
-            const url = window.location.href;
-            const texto = `¿Conoces a ${selProf.nombre}? Mira sus reseñas en RateMyProfe 👇\n${url}`;
-            window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`,"_blank");
-          }}>
-          📲 Compartir en WhatsApp
-        </button>
-      </div>
+        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+          <button className="btn btn-ghost" onClick={()=>navigate("home")} style={{fontSize:13,padding:"7px 14px"}}>← Volver</button>
+          <button className="btn btn-ghost" style={{fontSize:13,padding:"7px 14px"}}
+            onClick={()=>{
+              const url = window.location.href;
+              const texto = `¿Conoces a ${selProf.nombre}? Mira sus reseñas en RateMyProfe 👇\n${url}`;
+              window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`,"_blank");
+            }}>📲 Compartir en WhatsApp</button>
+        </div>
+
         <div className="card" style={{marginBottom:14,overflow:"hidden"}}>
           <div style={{background:`linear-gradient(135deg,${FAC_COLOR[selProf.facultad]||BD}18,${OR}08)`,padding:"22px 24px 18px"}}>
             <div style={{display:"flex",gap:16,alignItems:"flex-start",flexWrap:"wrap"}}>
@@ -741,12 +822,12 @@ export default function App() {
               </div>
               <p style={{fontSize:14,color:"#2d3a50",lineHeight:1.7}}>{r.texto}</p>
               <Divider/>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                 <span style={{fontSize:12,color:"#8a99b0"}}>¿Te fue útil?</span>
                 <button className="util-btn" onClick={()=>toggleUtil(selProf.id,r.id,"util")}>👍 {r.util||0}</button>
                 <button className="util-btn" onClick={()=>toggleUtil(selProf.id,r.id,"noUtil")}>👎 {r.noUtil||0}</button>
-                <button className="util-btn" 
-                  onClick={()=>reportarResena(selProf.id, r.id, r.texto, selProf.nombre)}
+                <button className="util-btn"
+                  onClick={()=>reportarResena(selProf.id,r.id,r.texto,selProf.nombre)}
                   style={{marginLeft:"auto",color:"#DC2626",borderColor:"#fecaca",opacity:reportes.some(x=>x.resId===r.id)?0.5:1}}
                   disabled={reportes.some(x=>x.resId===r.id)}>
                   🚨 {reportes.some(x=>x.resId===r.id)?"Reportada":"Reportar"}
@@ -760,158 +841,160 @@ export default function App() {
     </div>
   );
 
+  // ── ADMIN ──
   if(page==="admin") return (
-  <div style={{fontFamily:"Inter,sans-serif",minHeight:"100vh",background:"#eef2f9"}}>
-    <style>{css}</style><Header/>
-    {!adminUser ? (
-      <div style={{maxWidth:400,margin:"80px auto",padding:"0 16px"}}>
-        <div className="card" style={{padding:32,textAlign:"center"}}>
-          <div style={{fontSize:48,marginBottom:12}}>🔐</div>
-          <h2 style={{fontSize:20,fontWeight:700,color:BD,marginBottom:4}}>Panel de administrador</h2>
-          <p style={{fontSize:13,color:"#8a99b0",marginBottom:24}}>Acceso restringido</p>
-          <input className="input" type="email" value={adminEmail}
-            onChange={e=>setAdminEmail(e.target.value)}
-            placeholder="Correo electrónico" style={{marginBottom:10}}/>
-          <input className="input" type="password" value={adminPass}
-            onChange={e=>setAdminPass(e.target.value)}
-            onKeyDown={async e=>{
-              if(e.key==="Enter") {
-                setAdminLoading(true);
-                try {
-                  await signInWithEmailAndPassword(auth, adminEmail, adminPass);
-                  setAdminEmail(""); setAdminPass("");
-                } catch(e) {
-                  showToast("❌ Correo o contraseña incorrectos.");
-                } finally {
-                  setAdminLoading(false);
+    <div style={{fontFamily:"Inter,sans-serif",minHeight:"100vh",background:"#eef2f9"}}>
+      <style>{css}</style><Header/>
+      {!adminUser ? (
+        <div style={{maxWidth:400,margin:"80px auto",padding:"0 16px"}}>
+          <div className="card" style={{padding:32,textAlign:"center"}}>
+            <div style={{fontSize:48,marginBottom:12}}>🔐</div>
+            <h2 style={{fontSize:20,fontWeight:700,color:BD,marginBottom:4}}>Panel de administrador</h2>
+            <p style={{fontSize:13,color:"#8a99b0",marginBottom:24}}>Acceso restringido</p>
+            <input className="input" type="email" value={adminEmail} onChange={e=>setAdminEmail(e.target.value)} placeholder="Correo electrónico" style={{marginBottom:10}}/>
+            <input className="input" type="password" value={adminPass} onChange={e=>setAdminPass(e.target.value)}
+              onKeyDown={async e=>{
+                if(e.key==="Enter"){
+                  setAdminLoading(true);
+                  try { await signInWithEmailAndPassword(auth,adminEmail,adminPass); setAdminEmail(""); setAdminPass(""); }
+                  catch(e){ showToast("❌ Correo o contraseña incorrectos."); }
+                  finally{ setAdminLoading(false); }
                 }
-              }
-            }}
-            placeholder="Contraseña" style={{marginBottom:12}}/>
-          <button className="btn btn-blue" style={{width:"100%",padding:13}}
-            disabled={adminLoading}
-            onClick={async()=>{
-              setAdminLoading(true);
-              try {
-                await signInWithEmailAndPassword(auth, adminEmail, adminPass);
-                setAdminEmail(""); setAdminPass("");
-              } catch(e) {
-                showToast("❌ Correo o contraseña incorrectos.");
-              } finally {
-                setAdminLoading(false);
-              }
-            }}>
-            {adminLoading ? "Iniciando sesión..." : "Ingresar"}
-          </button>
-        </div>
-      </div>
-    ) : (
-      <div style={{maxWidth:780,margin:"0 auto",padding:"28px 16px 48px"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-          <div>
-            <h2 style={{fontSize:20,fontWeight:700,color:BD}}>⚙️ Panel de administrador</h2>
-            <p style={{fontSize:13,color:"#8a99b0"}}>Sesión: {adminUser.email}</p>
+              }}
+              placeholder="Contraseña" style={{marginBottom:12}}/>
+            <button className="btn btn-blue" style={{width:"100%",padding:13}} disabled={adminLoading}
+              onClick={async()=>{
+                setAdminLoading(true);
+                try { await signInWithEmailAndPassword(auth,adminEmail,adminPass); setAdminEmail(""); setAdminPass(""); }
+                catch(e){ showToast("❌ Correo o contraseña incorrectos."); }
+                finally{ setAdminLoading(false); }
+              }}>
+              {adminLoading?"Iniciando sesión...":"Ingresar"}
+            </button>
           </div>
-          <button className="btn btn-ghost" style={{fontSize:13}} onClick={async()=>{
-            await signOut(auth);
-            navigate("home");
-          }}>Cerrar sesión</button>
         </div>
-
-        {/* Stats */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:20}}>
-          {[{label:"Profesores",n:profesores.length,icon:"👨‍🏫",color:B},{label:"Reseñas totales",n:Object.values(resenas).flat().length,icon:"💬",color:OR},{label:"Reportes",n:reportes.length,icon:"🚨",color:"#DC2626"}].map(s=>(
-            <div key={s.label} className="card" style={{padding:"16px 20px",borderLeft:`4px solid ${s.color}`}}>
-              <div style={{fontSize:24,marginBottom:4}}>{s.icon}</div>
-              <div style={{fontSize:26,fontWeight:700,color:s.color}}>{s.n}</div>
-              <div style={{fontSize:12,color:"#8a99b0"}}>{s.label}</div>
+      ) : (
+        <div style={{maxWidth:780,margin:"0 auto",padding:"28px 16px 48px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+            <div>
+              <h2 style={{fontSize:20,fontWeight:700,color:BD}}>⚙️ Panel de administrador</h2>
+              <p style={{fontSize:13,color:"#8a99b0"}}>Sesión: {adminUser.email}</p>
             </div>
-          ))}
-        </div>
+            <button className="btn btn-ghost" style={{fontSize:13}} onClick={async()=>{await signOut(auth);navigate("home");}}>Cerrar sesión</button>
+          </div>
 
-        {/* Reportes */}
-        {reportes.length>0 && <>
-          <h3 style={{fontSize:16,fontWeight:700,color:"#DC2626",marginBottom:12}}>🚨 Reseñas reportadas ({reportes.length})</h3>
-          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
-            {reportes.map(rep=>{
-              const prof = profesores.find(p=>p.id===rep.profId);
-              const resena = (resenas[rep.profId]||[]).find(r=>r.id===rep.resId);
-              return(
-                <div key={rep.id} className="card" style={{padding:"14px 18px",border:"1.5px solid #fecaca"}}>
-                  <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:12,color:"#DC2626",fontWeight:600,marginBottom:4}}>
-                        🚨 {prof?.nombre||"Profesor eliminado"}
+          {/* Stats */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:20}}>
+            {[{label:"Profesores",n:profesores.length,icon:"👨‍🏫",color:B},{label:"Reseñas totales",n:Object.values(resenas).flat().length,icon:"💬",color:OR},{label:"Reportes",n:reportes.length,icon:"🚨",color:"#DC2626"}].map(s=>(
+              <div key={s.label} className="card" style={{padding:"16px 20px",borderLeft:`4px solid ${s.color}`}}>
+                <div style={{fontSize:24,marginBottom:4}}>{s.icon}</div>
+                <div style={{fontSize:26,fontWeight:700,color:s.color}}>{s.n}</div>
+                <div style={{fontSize:12,color:"#8a99b0"}}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Reportes */}
+          {reportes.length>0 && <>
+            <h3 style={{fontSize:16,fontWeight:700,color:"#DC2626",marginBottom:12}}>🚨 Reseñas reportadas ({reportes.length})</h3>
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+              {reportes.map(rep=>{
+                const prof = profesores.find(p=>p.id===rep.profId);
+                const resena = (resenas[rep.profId]||[]).find(r=>r.id===rep.resId);
+                return(
+                  <div key={rep.id} className="card" style={{padding:"14px 18px",border:"1.5px solid #fecaca"}}>
+                    <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,color:"#DC2626",fontWeight:600,marginBottom:4}}>🚨 {prof?.nombre||"Profesor eliminado"}</div>
+                        <p style={{fontSize:13,color:"#2d3a50",lineHeight:1.6}}>{rep.texto}</p>
                       </div>
-                      <p style={{fontSize:13,color:"#2d3a50",lineHeight:1.6}}>{rep.texto}</p>
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
-                      <button className="btn btn-red" style={{fontSize:12,padding:"5px 12px"}}
-                        onClick={async()=>{
-                          try {
-                            if(resena && prof) await eliminarResena(prof, resena);
-                            await deleteDoc(doc(db,"reportes",rep.id));
-                            showToast("🗑️ Reseña eliminada.");
-                          } catch(e) {
-                            showToast("❌ Error al eliminar.");
-                          }
-                        }}>🗑️ Eliminar reseña</button>
-                      <button className="btn btn-ghost" style={{fontSize:12,padding:"5px 12px"}}
-                        onClick={async()=>{
-                          await deleteDoc(doc(db,"reportes",rep.id));
-                          showToast("✅ Reporte descartado.");
-                        }}>Ignorar</button>
+                      <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                        <button className="btn btn-red" style={{fontSize:12,padding:"5px 12px"}}
+                          onClick={async()=>{
+                            try{if(resena&&prof)await eliminarResena(prof,resena);await deleteDoc(doc(db,"reportes",rep.id));showToast("🗑️ Reseña eliminada.");}
+                            catch(e){showToast("❌ Error al eliminar.");}
+                          }}>🗑️ Eliminar</button>
+                        <button className="btn btn-ghost" style={{fontSize:12,padding:"5px 12px"}}
+                          onClick={async()=>{await deleteDoc(doc(db,"reportes",rep.id));showToast("✅ Reporte descartado.");}}>
+                          Ignorar</button>
+                      </div>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          </>}
+
+          {/* Profesores con gestión de cursos */}
+          <h3 style={{fontSize:16,fontWeight:700,color:BD,marginBottom:12}}>Profesores registrados</h3>
+          <div className="card" style={{padding:"4px 0",marginBottom:20}}>
+            {profesores.map((p,i)=>(
+              <div key={p.id} style={{borderTop:i>0?"1px solid #edf1f7":"none"}}>
+                <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 18px"}}>
+                  <Avatar name={p.nombre} fac={p.facultad} size={38}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
+                    <div style={{fontSize:11,color:"#8a99b0",marginBottom:6}}>{p.facultad} · {p.totalReseñas||0} reseñas</div>
+                    {/* Cursos con botón de eliminar */}
+                    <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                      {(p.cursos||[]).map(c=>(
+                        <span key={c} style={{background:"#f3f6fb",padding:"3px 8px",borderRadius:20,fontSize:11,color:"#5a6a80",display:"inline-flex",alignItems:"center",gap:4}}>
+                          📚 {c}
+                          <span onClick={()=>eliminarCurso(p,c)} style={{cursor:"pointer",color:"#DC2626",fontWeight:700,fontSize:12,lineHeight:1}} title="Eliminar curso">✕</span>
+                        </span>
+                      ))}
+                      <span onClick={()=>{setEditCursoProf(p.id);setEditCursoVal("");}}
+                        style={{background:"#deeaf8",padding:"3px 10px",borderRadius:20,fontSize:11,color:B,cursor:"pointer",fontWeight:500}}>
+                        + Curso
+                      </span>
+                    </div>
+                    {/* Input agregar curso inline */}
+                    {editCursoProf===p.id && (
+                      <div style={{display:"flex",gap:6,marginTop:8}}>
+                        <input className="input" value={editCursoVal} onChange={e=>setEditCursoVal(e.target.value)}
+                          placeholder="Nombre del curso..." style={{fontSize:12,padding:"6px 10px"}}
+                          onKeyDown={e=>{if(e.key==="Enter")adminAgregarCurso(p);}}/>
+                        <button className="btn btn-green" style={{fontSize:12,padding:"6px 12px",flexShrink:0}} onClick={()=>adminAgregarCurso(p)}>✓</button>
+                        <button className="btn btn-ghost" style={{fontSize:12,padding:"6px 12px",flexShrink:0}} onClick={()=>setEditCursoProf(null)}>✕</button>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0,alignItems:"flex-end"}}>
+                    <RatingChip r={p.rating}/>
+                    <button className="btn btn-red" style={{fontSize:11,padding:"4px 10px"}} onClick={()=>eliminarProfesor(p)}>🗑️ Eliminar</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Reseñas */}
+          <h3 style={{fontSize:16,fontWeight:700,color:BD,marginBottom:12}}>Reseñas recientes</h3>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {profesores.flatMap(p=>(resenas[p.id]||[]).map(r=>{
+              const rAvg = avg(CRIT.map(c=>r.criterios[c]));
+              return (
+                <div key={r.id} className="card" style={{padding:"14px 18px",display:"flex",gap:12,alignItems:"flex-start"}}>
+                  <Avatar name={p.nombre} fac={p.facultad} size={36}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
+                      <span style={{fontSize:13,fontWeight:600}}>{p.nombre}</span>
+                      <span style={{background:`${ratingColor(rAvg)}18`,color:ratingColor(rAvg),fontWeight:700,fontSize:12,padding:"2px 8px",borderRadius:8}}>★ {rAvg.toFixed(1)}</span>
+                      {r.carrera&&<span style={{fontSize:11,color:"#8a99b0"}}>🎓 {r.carrera}</span>}
+                      {r.ciclo&&<span style={{fontSize:11,color:"#8a99b0"}}>Ciclo {r.ciclo}</span>}
+                    </div>
+                    <p style={{fontSize:13,color:"#2d3a50",lineHeight:1.6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.texto}</p>
+                  </div>
+                  <button className="btn btn-red" style={{fontSize:12,padding:"5px 12px",flexShrink:0}} onClick={()=>eliminarResena(p,r)}>🗑️</button>
                 </div>
               );
-            })}
+            }))}
           </div>
-        </>}
-
-        {/* Profesores */}
-        <h3 style={{fontSize:16,fontWeight:700,color:BD,marginBottom:12}}>Profesores registrados</h3>
-        <div className="card" style={{padding:"4px 0",marginBottom:20}}>
-          {profesores.map((p,i)=>(
-            <div key={p.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 18px",borderTop:i>0?"1px solid #edf1f7":"none"}}>
-              <Avatar name={p.nombre} fac={p.facultad} size={38}/>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:600}}>{p.nombre}</div>
-                <div style={{fontSize:11,color:"#8a99b0"}}>{p.facultad} · {(p.cursos||[]).join(", ")} · {p.totalReseñas||0} reseñas</div>
-              </div>
-              <RatingChip r={p.rating}/>
-              <button className="btn btn-red" style={{fontSize:12,padding:"5px 12px",flexShrink:0}} onClick={()=>eliminarProfesor(p)}>🗑️ Eliminar</button>
-            </div>
-          ))}
         </div>
-
-        {/* Reseñas */}
-        <h3 style={{fontSize:16,fontWeight:700,color:BD,marginBottom:12}}>Reseñas recientes</h3>
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {profesores.flatMap(p=>(resenas[p.id]||[]).map(r=>{
-            const rAvg = avg(CRIT.map(c=>r.criterios[c]));
-            return (
-              <div key={r.id} className="card" style={{padding:"14px 18px",display:"flex",gap:12,alignItems:"flex-start"}}>
-                <Avatar name={p.nombre} fac={p.facultad} size={36}/>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
-                    <span style={{fontSize:13,fontWeight:600}}>{p.nombre}</span>
-                    <span style={{background:`${ratingColor(rAvg)}18`,color:ratingColor(rAvg),fontWeight:700,fontSize:12,padding:"2px 8px",borderRadius:8}}>★ {rAvg.toFixed(1)}</span>
-                    {r.carrera && <span style={{fontSize:11,color:"#8a99b0"}}>🎓 {r.carrera}</span>}
-                    {r.ciclo && <span style={{fontSize:11,color:"#8a99b0"}}>Ciclo {r.ciclo}</span>}
-                  </div>
-                  <p style={{fontSize:13,color:"#2d3a50",lineHeight:1.6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.texto}</p>
-                </div>
-                <button className="btn btn-red" style={{fontSize:12,padding:"5px 12px",flexShrink:0}} onClick={()=>eliminarResena(p,r)}>🗑️</button>
-              </div>
-            );
-          }))}
-        </div>
-      </div>
-    )}
-    {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
-  </div>
-);
+      )}
+      {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
+    </div>
+  );
 
   return null;
 }
